@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/png" href="images/favicon.png">
+    <title>Project 0: APACHE KAFKA — THE COMPLETE 50-PROJECT MASTERY GUIDE — Apache Kafka Masterclass</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <div class="content">
+            <div class="chat-message" data-index="1">
+<div class="px-2"><h1>🔥 APACHE KAFKA — THE COMPLETE 50-PROJECT MASTERY GUIDE</h1>
+<h2>📖 COMPREHENSIVE TABLE OF CONTENTS</h2>
+<hr>
+<h1>📋 PHASE 1: VERY EASY — FOUNDATION THINKING (Projects 1–8)</h1>
+<blockquote>
+<p><strong>Theme:</strong> Understanding what Kafka is, why it exists, and how messages flow from point A to point B</p>
+</blockquote>
+<table><thead><tr><th>#</th><th>Project Title</th><th>Core Concept Introduced</th><th>Link Dependency</th></tr></thead><tbody><tr><td>1</td><td><strong>The Restaurant Order Slip — Your First Kafka Message</strong></td><td>Kafka installation → Broker → Topic → Producer → Consumer (single message lifecycle)</td><td>None (Starting Point)</td></tr><tr><td>2</td><td><strong>The News Ticker — Producing a Continuous Stream</strong></td><td>Continuous producing → Message ordering → Topic as append-only log</td><td>Builds on Project 1</td></tr><tr><td>3</td><td><strong>The Mailbox System — Understanding Partitions</strong></td><td>Partitions → Parallelism foundations → Partition numbering → Offset basics</td><td>Builds on Projects 1, 2</td></tr><tr><td>4</td><td><strong>The Hotel Front Desk — Key-Based Message Routing</strong></td><td>Message keys → Key hashing → Partition assignment by key → Key-to-partition determinism</td><td>Builds on Project 3</td></tr><tr><td>5</td><td><strong>The Call Center Queue — Consumer Groups</strong></td><td>Consumer groups → Group ID → Partition assignment across consumers → Load distribution</td><td>Builds on Projects 3, 4</td></tr><tr><td>6</td><td><strong>The Bookmark Reader — Understanding Offsets</strong></td><td>Offsets → Auto-commit → <code>earliest</code> vs <code>latest</code> → Offset position tracking</td><td>Builds on Project 5</td></tr><tr><td>7</td><td><strong>The Multilingual Post Office — Message Serialization</strong></td><td>String serializer → JSON serializer → Custom value serialization → Deserialization pairing</td><td>Builds on Projects 1, 4</td></tr><tr><td>8</td><td><strong>The Command Tower — Kafka CLI Mastery</strong></td><td><code>kafka-topics.sh</code> → <code>kafka-console-producer.sh</code> → <code>kafka-console-consumer.sh</code> → <code>kafka-consumer-groups.sh</code> → Describe &amp; Alter commands</td><td>Builds on Projects 1–7</td></tr></tbody></table>
+<hr>
+<h1>📋 PHASE 2: EASY — CORE PATTERNS (Projects 9–15)</h1>
+<blockquote>
+<p><strong>Theme:</strong> Building real producer-consumer patterns, understanding delivery guarantees, and connecting Kafka to external systems</p>
+</blockquote>
+<table><thead><tr><th>#</th><th>Project Title</th><th>Core Concept Introduced</th><th>Link Dependency</th></tr></thead><tbody><tr><td>9</td><td><strong>The Warehouse Conveyor Belt — Multi-Partition Producing</strong></td><td>Producing to specific partitions → Round-robin distribution → Partition-aware producer design</td><td>Builds on Projects 3, 4</td></tr><tr><td>10</td><td><strong>The Shift Change Problem — Consumer Group Rebalancing</strong></td><td>Rebalance triggers → Partition reassignment → <code>CooperativeStickyAssignor</code> → Rebalance listeners</td><td>Builds on Project 5</td></tr><tr><td>11</td><td><strong>The Banking Ledger — Delivery Guarantees</strong></td><td><code>acks=0</code> → <code>acks=1</code> → <code>acks=all</code> → At-most-once → At-least-once → Idempotent producer introduction</td><td>Builds on Projects 2, 6</td></tr><tr><td>12</td><td><strong>The IoT Sensor Dashboard — Python Kafka Client</strong></td><td><code>confluent-kafka</code> Python library → Python Producer → Python Consumer → Callback patterns</td><td>Builds on Projects 1–8</td></tr><tr><td>13</td><td><strong>The E-Commerce Cart — Structured Message Design</strong></td><td>Message schema design → Headers → Timestamp types → Metadata enrichment → Message size considerations</td><td>Builds on Projects 7, 12</td></tr><tr><td>14</td><td><strong>The User Profile Store — Log Compaction</strong></td><td>Log compaction vs deletion → Cleanup policies → <code>compact</code> vs <code>delete</code> → Tombstone records → Retention by key</td><td>Builds on Projects 4, 6</td></tr><tr><td>15</td><td><strong>The CSV Ingestion Pipeline — Kafka Connect File Source/Sink</strong></td><td>Kafka Connect framework → Connectors → Source vs Sink → FileStreamSource → FileStreamSink → Standalone mode</td><td>Builds on Projects 2, 8</td></tr></tbody></table>
+<hr>
+<h1>📋 PHASE 3: MEDIUM — PROFESSIONAL TECHNIQUES (Projects 16–30)</h1>
+<blockquote>
+<p><strong>Theme:</strong> Schema governance, stream processing, security, monitoring, and production-grade patterns</p>
+</blockquote>
+<table><thead><tr><th>#</th><th>Project Title</th><th>Core Concept Introduced</th><th>Link Dependency</th></tr></thead><tbody><tr><td>16</td><td><strong>The Government Forms Bureau — Avro Serialization with Schema Registry</strong></td><td>Apache Avro → Schema Registry → Schema subjects → Avro producer/consumer → Schema ID wire format</td><td>Builds on Projects 7, 13</td></tr><tr><td>17</td><td><strong>The Exactly-Once ATM Machine — Idempotent &amp; Transactional Producer</strong></td><td>Idempotent producer (<code>enable.idempotence</code>) → Producer sequence numbers → Exactly-once semantics (EOS) introduction</td><td>Builds on Project 11</td></tr><tr><td>18</td><td><strong>The Fund Transfer System — Kafka Transactions</strong></td><td><code>initTransactions()</code> → <code>beginTransaction()</code> → <code>commitTransaction()</code> → <code>abortTransaction()</code> → Transactional consumer (<code>read_committed</code>)</td><td>Builds on Project 17</td></tr><tr><td>19</td><td><strong>The Real-Time Word Counter — Kafka Streams Basics</strong></td><td>Kafka Streams library → KStream → Topology → <code>StreamsBuilder</code> → Processing topology → State directory</td><td>Builds on Projects 5, 12</td></tr><tr><td>20</td><td><strong>The Content Filter — Stateless Stream Transformations</strong></td><td><code>filter()</code> → <code>map()</code> → <code>mapValues()</code> → <code>flatMap()</code> → <code>branch()</code> → <code>selectKey()</code></td><td>Builds on Project 19</td></tr><tr><td>21</td><td><strong>The Sales Leaderboard — Stateful Aggregations</strong></td><td><code>groupByKey()</code> → <code>count()</code> → <code>reduce()</code> → <code>aggregate()</code> → KTable → State stores (RocksDB)</td><td>Builds on Project 20</td></tr><tr><td>22</td><td><strong>The Traffic Surge Monitor — Windowed Operations</strong></td><td>Tumbling windows → Hopping windows → Sliding windows → Session windows → Window retention → Grace period</td><td>Builds on Project 21</td></tr><tr><td>23</td><td><strong>The Database Sync Pipeline — JDBC Source Connector</strong></td><td>JDBC Source Connector → Poll-based ingestion → Incrementing mode → Timestamp mode → Distributed Connect mode</td><td>Builds on Project 15</td></tr><tr><td>24</td><td><strong>The Data Masking Pipeline — Single Message Transforms</strong></td><td>SMT framework → <code>InsertField</code> → <code>ReplaceField</code> → <code>MaskField</code> → <code>TimestampRouter</code> → Chaining transforms</td><td>Builds on Projects 15, 23</td></tr><tr><td>25</td><td><strong>The Poison Pill Handler — Dead Letter Queues</strong></td><td>DLQ pattern → Error-handling deserializer → <code>errors.tolerance</code> → <code>errors.deadletterqueue.topic.name</code> → Manual DLQ routing</td><td>Builds on Projects 12, 15</td></tr><tr><td>26</td><td><strong>The Retry Storm Shelter — Retry Patterns &amp; Backoff</strong></td><td>Retry topic pattern → Exponential backoff → Retry count headers → Max retry exhaustion → Parking lot topic</td><td>Builds on Project 25</td></tr><tr><td>27</td><td><strong>The Global News Syndication — Multi-Datacenter Replication</strong></td><td>MirrorMaker 2.0 → Source &amp; target clusters → Replication flows → Topic renaming → Offset sync → Active-passive vs active-active</td><td>Builds on Projects 8, 11</td></tr><tr><td>28</td><td><strong>The Kafka Health Dashboard — Monitoring with JMX</strong></td><td>JMX metrics → Broker metrics → Producer metrics → Consumer lag → Under-replicated partitions → Prometheus + Grafana integration</td><td>Builds on Projects 8, 23</td></tr><tr><td>29</td><td><strong>The Encrypted Channel — SSL/TLS for Kafka</strong></td><td>Keystore → Truststore → SSL listener configuration → Inter-broker SSL → Client SSL configuration → Certificate rotation basics</td><td>Builds on Project 8</td></tr><tr><td>30</td><td><strong>The Gated Access System — SASL Authentication &amp; ACLs</strong></td><td>SASL/PLAIN → SASL/SCRAM → ACL rules → <code>kafka-acls.sh</code> → Principal-based access → Topic-level &amp; group-level permissions</td><td>Builds on Project 29</td></tr></tbody></table>
+<hr>
+<h1>📋 PHASE 4: HARD — ADVANCED PATTERNS (Projects 31–40)</h1>
+<blockquote>
+<p><strong>Theme:</strong> Custom internals, advanced stream processing, architectural patterns, and performance engineering</p>
+</blockquote>
+<table><thead><tr><th>#</th><th>Project Title</th><th>Core Concept Introduced</th><th>Link Dependency</th></tr></thead><tbody><tr><td>31</td><td><strong>The Geographic Router — Custom Partitioner</strong></td><td><code>Partitioner</code> interface → Custom partition logic → Weighted partitioning → Partition-aware consumers → Hot partition avoidance</td><td>Builds on Projects 4, 9</td></tr><tr><td>32</td><td><strong>The Order Enrichment Engine — KStream-KTable Joins</strong></td><td>KStream-KTable join → KStream-KStream join → KTable-KTable join → GlobalKTable → Co-partitioning requirement</td><td>Builds on Projects 19–21</td></tr><tr><td>33</td><td><strong>The Live Inventory Query — Interactive Queries</strong></td><td>ReadOnlyKeyValueStore → QueryableStoreTypes → <code>store()</code> method → REST API over state stores → Remote state discovery</td><td>Builds on Projects 21, 32</td></tr><tr><td>34</td><td><strong>The Audit Trail Ledger — Event Sourcing Pattern</strong></td><td>Event store on Kafka → Aggregate reconstruction → Snapshot strategy → Event replay → Temporal queries</td><td>Builds on Projects 14, 18, 21</td></tr><tr><td>35</td><td><strong>The Read-Write Split System — CQRS with Kafka</strong></td><td>Command side → Event publication → Query side materialization → Eventual consistency → Projection rebuilding</td><td>Builds on Project 34</td></tr><tr><td>36</td><td><strong>The Travel Booking Coordinator — Saga Pattern</strong></td><td>Orchestration saga → Choreography saga → Compensating transactions → Saga state machine → Failure rollback chain</td><td>Builds on Projects 18, 34, 35</td></tr><tr><td>37</td><td><strong>The Database Mirror — Change Data Capture with Debezium</strong></td><td>Debezium connectors → WAL/binlog reading → CDC event structure → Snapshot mode → Schema history topic → Outbox pattern</td><td>Builds on Projects 23, 34</td></tr><tr><td>38</td><td><strong>The Evolving Contract System — Schema Evolution</strong></td><td>Backward compatibility → Forward compatibility → Full compatibility → Breaking changes → Schema migration strategies → Compatibility levels in Schema Registry</td><td>Builds on Project 16</td></tr><tr><td>39</td><td><strong>The High-Throughput Firehose — Performance Tuning</strong></td><td><code>batch.size</code> → <code>linger.ms</code> → <code>compression.type</code> → <code>buffer.memory</code> → <code>fetch.min.bytes</code> → <code>max.poll.records</code> → Benchmark methodology</td><td>Builds on Projects 9, 11, 12</td></tr><tr><td>40</td><td><strong>The Resilient Cluster — Replication, ISR &amp; Leader Election</strong></td><td>Replication factor → ISR (In-Sync Replicas) → <code>min.insync.replicas</code> → Unclean leader election → Preferred replica election → Rack awareness</td><td>Builds on Projects 11, 27, 28</td></tr></tbody></table>
+<hr>
+<h1>📋 PHASE 5: VERY HARD — MASTERY + BRIDGE TO NEXT SUBJECT (Projects 41–50)</h1>
+<blockquote>
+<p><strong>Theme:</strong> Enterprise architecture, production-grade resilience, full pipeline design, and bridging to the next technology frontier</p>
+</blockquote>
+<table><thead><tr><th>#</th><th>Project Title</th><th>Core Concept Introduced</th><th>Link Dependency</th></tr></thead><tbody><tr><td>41</td><td><strong>The Telemetry Injector — Custom Kafka Interceptors</strong></td><td><code>ProducerInterceptor</code> → <code>ConsumerInterceptor</code> → <code>onSend()</code> → <code>onConsume()</code> → Tracing propagation → Metrics injection</td><td>Builds on Projects 12, 28, 39</td></tr><tr><td>42</td><td><strong>The SaaS Platform Backbone — Multi-Tenant Kafka Architecture</strong></td><td>Topic-per-tenant → Namespace isolation → Quota management (<code>producer_byte_rate</code>, <code>consumer_byte_rate</code>) → Topic naming conventions → Tenant onboarding automation</td><td>Builds on Projects 30, 31, 40</td></tr><tr><td>43</td><td><strong>The Zero-Loss Stream Processor — Exactly-Once Kafka Streams</strong></td><td><code>processing.guarantee=exactly_once_v2</code> → Changelog topics → Repartition topics → State store transactions → Fencing zombie instances</td><td>Builds on Projects 18, 21, 33</td></tr><tr><td>44</td><td><strong>The Fraud Detection Pipeline — Real-Time Complex Event Processing</strong></td><td>Multi-stream join → Windowed anomaly scoring → Threshold-based alerting → Feedback loop → State TTL → Late event handling</td><td>Builds on Projects 22, 32, 43</td></tr><tr><td>45</td><td><strong>The Microservice Event Bus — Event-Driven Microservices</strong></td><td>Event contracts → Service discovery via topics → Shared-nothing architecture → Anti-corruption layer → Event versioning → Consumer-driven contracts</td><td>Builds on Projects 34, 35, 36, 38</td></tr><tr><td>46</td><td><strong>The Cloud-Native Kafka — Kubernetes Deployment with Strimzi</strong></td><td>Strimzi operator → <code>Kafka</code> CRD → <code>KafkaTopic</code> CRD → <code>KafkaUser</code> CRD → Rolling upgrades → Persistent volume claims → Resource limits</td><td>Builds on Projects 29, 30, 40</td></tr><tr><td>47</td><td><strong>The Disaster Recovery Fortress — Cross-Cluster Failover</strong></td><td>Active-passive failover → Active-active with conflict resolution → Offset translation → Consumer failover automation → RPO/RTO design → MirrorMaker 2 health checks</td><td>Builds on Projects 27, 40, 46</td></tr><tr><td>48</td><td><strong>The Pressure Valve — Backpressure Handling &amp; Flow Control</strong></td><td>Consumer <code>pause()</code> / <code>resume()</code> → Quota throttling → Producer blocking vs dropping → Rate limiting patterns → Spillover topics → Adaptive consumption</td><td>Builds on Projects 10, 39, 42</td></tr><tr><td>49</td><td><strong>The Full Observability Stack — End-to-End Pipeline Monitoring</strong></td><td>Distributed tracing (OpenTelemetry) → Correlation IDs → Consumer lag alerting → End-to-end latency measurement → Data lineage tracking → SLA dashboards</td><td>Builds on Projects 28, 41, 44</td></tr><tr><td>50</td><td><strong>The Enterprise Event Mesh — Unified Streaming Architecture &amp; Bridge to What's Next</strong></td><td>Event mesh topology → Domain-driven topic design → Governance layer → Self-serve platform → Cost modeling → Bridge to Flink / Spark Streaming / Pulsar / Cloud-native eventing</td><td>Builds on Projects 42, 45, 47, 49</td></tr></tbody></table>
+<hr>
+<h2>🔗 DEPENDENCY FLOW VISUALIZATION</h2>
+<div class="relative"><pre style="color: rgb(57, 58, 52); font-family: Consolas, &quot;Bitstream Vera Sans Mono&quot;, &quot;Courier New&quot;, Courier, monospace; direction: ltr; text-align: left; white-space: pre; word-spacing: normal; word-break: normal; font-size: 0.9em; line-height: 1.2em; tab-size: 4; hyphens: none; padding: 1em; margin: 0.5em 0px; overflow: auto; border: 1px solid rgb(221, 221, 221); background-color: white;"><code style="white-space: pre-wrap; word-break: break-all;"><span>PROJECT 1 (Message Lifecycle)
+</span>├── PROJECT 2 (Continuous Stream)
+│   ├── PROJECT 3 (Partitions)
+│   │   ├── PROJECT 4 (Key-Based Routing)
+│   │   │   ├── PROJECT 5 (Consumer Groups)
+│   │   │   │   ├── PROJECT 6 (Offsets)
+│   │   │   │   │   ├── PROJECT 14 (Log Compaction)
+│   │   │   │   │   └── PROJECT 11 (Delivery Guarantees)
+│   │   │   │   │       ├── PROJECT 17 (Idempotent Producer)
+│   │   │   │   │       │   └── PROJECT 18 (Transactions)
+│   │   │   │   │       │       ├── PROJECT 34 (Event Sourcing)
+│   │   │   │   │       │       │   ├── PROJECT 35 (CQRS)
+│   │   │   │   │       │       │   │   └── PROJECT 36 (Saga)
+│   │   │   │   │       │       │   └── PROJECT 37 (CDC/Debezium)
+│   │   │   │   │       │       └── PROJECT 43 (EOS Streams)
+│   │   │   │   │       │           └── PROJECT 44 (Fraud Detection)
+│   │   │   │   │       └── PROJECT 39 (Performance Tuning)
+│   │   │   │   │           └── PROJECT 41 (Interceptors)
+│   │   │   │   ├── PROJECT 10 (Rebalancing)
+│   │   │   │   │   └── PROJECT 48 (Backpressure)
+│   │   │   │   └── PROJECT 19 (Kafka Streams)
+│   │   │   │       ├── PROJECT 20 (Stateless Transforms)
+│   │   │   │       │   └── PROJECT 21 (Stateful Aggregations)
+│   │   │   │       │       ├── PROJECT 22 (Windowed Ops)
+│   │   │   │       │       ├── PROJECT 32 (Joins)
+│   │   │   │       │       │   └── PROJECT 33 (Interactive Queries)
+│   │   │   │       │       └── PROJECT 43 (EOS Streams)
+│   │   │   │       └── PROJECT 32 (Joins)
+│   │   │   ├── PROJECT 9 (Multi-Partition Producing)
+│   │   │   │   └── PROJECT 31 (Custom Partitioner)
+│   │   │   └── PROJECT 7 (Serialization)
+│   │   │       ├── PROJECT 13 (Message Design)
+│   │   │       └── PROJECT 16 (Avro + Schema Registry)
+│   │   │           └── PROJECT 38 (Schema Evolution)
+│   │   └── PROJECT 8 (CLI Tools)
+│   │       ├── PROJECT 15 (Kafka Connect)
+│   │       │   ├── PROJECT 23 (JDBC Connector)
+│   │       │   │   └── PROJECT 24 (SMTs)
+│   │       │   └── PROJECT 25 (Dead Letter Queues)
+│   │       │       └── PROJECT 26 (Retry Patterns)
+│   │       ├── PROJECT 27 (MirrorMaker)
+│   │       │   ├── PROJECT 40 (Cluster Resilience)
+│   │       │   │   ├── PROJECT 42 (Multi-Tenant)
+│   │       │   │   │   └── PROJECT 48 (Backpressure)
+│   │       │   │   └── PROJECT 46 (Kubernetes)
+│   │       │   │       └── PROJECT 47 (Disaster Recovery)
+│   │       │   └── PROJECT 47 (Disaster Recovery)
+│   │       ├── PROJECT 28 (Monitoring)
+│   │       │   ├── PROJECT 41 (Interceptors)
+│   │       │   └── PROJECT 49 (Observability)
+│   │       ├── PROJECT 29 (SSL/TLS)
+│   │       │   └── PROJECT 30 (SASL &amp; ACLs)
+│   │       │       └── PROJECT 42 (Multi-Tenant)
+│   │       └── PROJECT 46 (Kubernetes)
+├── PROJECT 12 (Python Client)
+│   └── ... (feeds into multiple downstream)
+└── ...
+
+TERMINAL NODE:
+    PROJECT 50 (Enterprise Event Mesh)
+    ← Builds on 42, 45, 47, 49
+    → BRIDGES TO: Apache Flink, Spark Streaming, Pulsar, Cloud Eventing</code></pre></div>
+<hr>
+<h2>✅ READY TO BEGIN</h2>
+</div>
+</div>
+
+<!-- ========== data-index="3" ========== -->
+
+        </div>
+
+        <div class="nav-bar">
+            <a href="index.html" class="nav-button prev">← 📚 Home</a>
+            <div class="page-info">
+                <a href="index.html" class="nav-button home">📚 Table of Contents</a><br>
+                <span style="margin-top:8px;display:block">Project 0 of 45</span>
+            </div>
+            <a href="project-1.html" class="nav-button next">Next Project →</a>
+        </div>
+    </div>
+
+    
+    <div id="progress-track"><div id="progress-fill"></div></div>
+    <div id="progress-pct">0%</div>
+
+
+<script src="script.js"></script>
+
+</body>
+</html>

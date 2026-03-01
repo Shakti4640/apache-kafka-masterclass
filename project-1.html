@@ -1,0 +1,931 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/png" href="images/favicon.png">
+    <title>Project 1: THE RESTAURANT ORDER SLIP — YOUR FIRST KAFKA MESSAGE — Apache Kafka Masterclass</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <div class="content">
+            <div class="chat-message" data-index="3">
+<div class="px-2"><h1>PROJECT 1: THE RESTAURANT ORDER SLIP — YOUR FIRST KAFKA MESSAGE</h1>
+<hr>
+<h2>🎯 HYPOTHETICAL PROBLEM</h2>
+<div class="relative"><pre style="color: rgb(57, 58, 52); font-family: Consolas, &quot;Bitstream Vera Sans Mono&quot;, &quot;Courier New&quot;, Courier, monospace; direction: ltr; text-align: left; white-space: pre; word-spacing: normal; word-break: normal; font-size: 0.9em; line-height: 1.2em; tab-size: 4; hyphens: none; padding: 1em; margin: 0.5em 0px; overflow: auto; border: 1px solid rgb(221, 221, 221); background-color: white;"><code style="white-space: pre-wrap; word-break: break-all;"><span>You own a small restaurant called "ByteBite Diner"
+</span>
+→ A customer walks in and places an order: "1x Burger, extra cheese"
+→ The waiter writes the order on a slip of paper
+→ The slip goes to a counter (a shared board)
+→ The kitchen picks up the slip and starts cooking
+
+RIGHT NOW this works fine with 1 waiter and 1 kitchen
+
+BUT here is the problem:
+→ The waiter CANNOT walk to the kitchen every single time
+→ The kitchen CANNOT keep asking "any new orders?"
+→ If the kitchen is busy, the waiter is STUCK waiting
+→ If the waiter is fast, orders pile up and get LOST
+
+You need a SYSTEM where:
+→ The waiter DROPS the order slip and walks away immediately
+→ The kitchen PICKS UP slips whenever it is ready
+→ No order is EVER lost
+→ The waiter and kitchen NEVER need to know about each other</code></pre></div>
+<hr>
+<h2>🔍 HOW TO APPROACH IT</h2>
+<div class="relative"><pre style="color: rgb(57, 58, 52); font-family: Consolas, &quot;Bitstream Vera Sans Mono&quot;, &quot;Courier New&quot;, Courier, monospace; direction: ltr; text-align: left; white-space: pre; word-spacing: normal; word-break: normal; font-size: 0.9em; line-height: 1.2em; tab-size: 4; hyphens: none; padding: 1em; margin: 0.5em 0px; overflow: auto; border: 1px solid rgb(221, 221, 221); background-color: white;"><code style="white-space: pre-wrap; word-break: break-all;"><span>Step 1: Identify the ACTORS
+</span>         → Waiter = the one PRODUCING information
+         → Kitchen = the one CONSUMING information
+         → Order Slip = the MESSAGE
+         → Counter/Board = the CHANNEL where slips are placed
+
+Step 2: Identify the DECOUPLING NEED
+         → Waiter should NOT wait for kitchen
+         → Kitchen should NOT wait for waiter
+         → They communicate through an INTERMEDIARY
+
+Step 3: Identify the GUARANTEE NEED
+         → Every order must be stored safely
+         → Even if the kitchen is temporarily offline
+         → The order must still be there when kitchen comes back
+
+Step 4: Map this to Kafka
+         → Waiter         = PRODUCER
+         → Kitchen         = CONSUMER
+         → Order Slip      = MESSAGE (a record)
+         → Counter/Board   = TOPIC (named channel)
+         → Restaurant      = BROKER (the Kafka server holding everything)</code></pre></div>
+<hr>
+<h2>🛠️ HOW CAN WE SOLVE IT</h2>
+<div class="relative"><pre style="color: rgb(57, 58, 52); font-family: Consolas, &quot;Bitstream Vera Sans Mono&quot;, &quot;Courier New&quot;, Courier, monospace; direction: ltr; text-align: left; white-space: pre; word-spacing: normal; word-break: normal; font-size: 0.9em; line-height: 1.2em; tab-size: 4; hyphens: none; padding: 1em; margin: 0.5em 0px; overflow: auto; border: 1px solid rgb(221, 221, 221); background-color: white;"><code style="white-space: pre-wrap; word-break: break-all;"><span>SOLUTION: Install Apache Kafka and simulate this exact flow
+</span>
+→ Start a Kafka BROKER (the restaurant's message board system)
+→ Create a TOPIC called "food-orders" (the counter/board)
+→ Write a PRODUCER that sends an order message (the waiter)
+→ Write a CONSUMER that reads the order message (the kitchen)
+
+THE FLOW:
+  Producer → writes "1x Burger, extra cheese" → to topic "food-orders"
+  Consumer → reads from topic "food-orders" → gets "1x Burger, extra cheese"
+
+THEY NEVER TALK TO EACH OTHER DIRECTLY</code></pre></div>
+<hr>
+<h2>✅ WHAT COULD BE DONE</h2>
+<div class="relative"><pre style="color: rgb(57, 58, 52); font-family: Consolas, &quot;Bitstream Vera Sans Mono&quot;, &quot;Courier New&quot;, Courier, monospace; direction: ltr; text-align: left; white-space: pre; word-spacing: normal; word-break: normal; font-size: 0.9em; line-height: 1.2em; tab-size: 4; hyphens: none; padding: 1em; margin: 0.5em 0px; overflow: auto; border: 1px solid rgb(221, 221, 221); background-color: white;"><code style="white-space: pre-wrap; word-break: break-all;"><span>Option A: Use a simple file on disk
+</span>          → Waiter writes to a file, kitchen reads from it
+          → PROBLEM: No ordering guarantee, no concurrent access safety, no scalability
+
+Option B: Use a database table as a queue
+          → Insert rows, poll for new rows
+          → PROBLEM: Polling is expensive, locking issues, not real-time
+
+Option C: Use a traditional message queue (RabbitMQ, ActiveMQ)
+          → Works for simple cases
+          → PROBLEM: Message is DELETED after consumption — no replay, no history
+
+Option D: Use Apache Kafka ✅
+          → Messages are STORED in an append-only log
+          → Messages are NOT deleted after consumption
+          → Multiple consumers can read the SAME message independently
+          → Messages are ORDERED within their storage unit
+          → Built for HIGH THROUGHPUT from day one</code></pre></div>
+<hr>
+<h2>✅ WHAT SHOULD DO</h2>
+<div class="relative"><pre style="color: rgb(57, 58, 52); font-family: Consolas, &quot;Bitstream Vera Sans Mono&quot;, &quot;Courier New&quot;, Courier, monospace; direction: ltr; text-align: left; white-space: pre; word-spacing: normal; word-break: normal; font-size: 0.9em; line-height: 1.2em; tab-size: 4; hyphens: none; padding: 1em; margin: 0.5em 0px; overflow: auto; border: 1px solid rgb(221, 221, 221); background-color: white;"><code style="white-space: pre-wrap; word-break: break-all;"><span>1. ALWAYS start ZooKeeper (or KRaft controller) BEFORE starting Kafka broker
+</span>   → Kafka depends on coordination metadata
+
+2. ALWAYS create the topic BEFORE producing messages
+   → Even though Kafka can auto-create topics, explicit creation gives you control
+
+3. ALWAYS name topics with clear, lowercase, hyphen-separated names
+   → "food-orders" ✅
+   → "FoodOrders" ❌
+   → "food_orders" ⚠️ (works but convention prefers hyphens)
+
+4. ALWAYS specify the bootstrap server address when connecting
+   → This is how your producer/consumer finds the Kafka cluster
+
+5. ALWAYS shut down Kafka BEFORE ZooKeeper when stopping
+   → Reverse order of startup
+
+6. ALWAYS use a unique group.id for each logical consumer application
+   → This is how Kafka tracks what has been read</code></pre></div>
+<hr>
+<h2>❌ WHAT SHOULD NOT DO</h2>
+<div class="relative"><pre style="color: rgb(57, 58, 52); font-family: Consolas, &quot;Bitstream Vera Sans Mono&quot;, &quot;Courier New&quot;, Courier, monospace; direction: ltr; text-align: left; white-space: pre; word-spacing: normal; word-break: normal; font-size: 0.9em; line-height: 1.2em; tab-size: 4; hyphens: none; padding: 1em; margin: 0.5em 0px; overflow: auto; border: 1px solid rgb(221, 221, 221); background-color: white;"><code style="white-space: pre-wrap; word-break: break-all;"><span>1. DO NOT start Kafka broker without ZooKeeper/KRaft running
+</span>   → Kafka will fail to start or behave unpredictably
+
+2. DO NOT assume messages are deleted after reading
+   → Kafka is NOT a traditional queue — messages persist based on retention
+
+3. DO NOT hardcode "localhost:9092" in production
+   → Use configuration files or environment variables
+
+4. DO NOT skip understanding the BROKER concept
+   → Everything in Kafka revolves around the broker — it is the server
+
+5. DO NOT create hundreds of topics for testing
+   → Each topic has metadata overhead — start with ONE topic, understand it deeply
+
+6. DO NOT ignore the log output during startup
+   → Kafka logs tell you EXACTLY what is happening — port binding, topic creation, errors</code></pre></div>
+<hr>
+<h2>🔀 WHEN TO USE WHAT</h2>
+<div class="relative"><pre style="color: rgb(57, 58, 52); font-family: Consolas, &quot;Bitstream Vera Sans Mono&quot;, &quot;Courier New&quot;, Courier, monospace; direction: ltr; text-align: left; white-space: pre; word-spacing: normal; word-break: normal; font-size: 0.9em; line-height: 1.2em; tab-size: 4; hyphens: none; padding: 1em; margin: 0.5em 0px; overflow: auto; border: 1px solid rgb(221, 221, 221); background-color: white;"><code style="white-space: pre-wrap; word-break: break-all;"><span>┌─────────────────────────────┬──────────────────────────────────────────┐
+</span>│ USE KAFKA WHEN              │ USE SOMETHING ELSE WHEN                  │
+├─────────────────────────────┼──────────────────────────────────────────┤
+│ You need to DECOUPLE        │ You need REQUEST-RESPONSE (use HTTP)     │
+│ producer from consumer      │                                          │
+├─────────────────────────────┼──────────────────────────────────────────┤
+│ You need MESSAGE REPLAY     │ You need one-time delivery and DELETE    │
+│ (re-read old messages)      │ after read (use RabbitMQ)                │
+├─────────────────────────────┼──────────────────────────────────────────┤
+│ You need HIGH THROUGHPUT    │ You have 10 messages/day (overkill)      │
+│ (thousands/sec or more)     │                                          │
+├─────────────────────────────┼──────────────────────────────────────────┤
+│ You need MULTIPLE consumers │ Only ONE consumer will ever read the     │
+│ reading same data           │ data (simpler tools suffice)             │
+├─────────────────────────────┼──────────────────────────────────────────┤
+│ You need DURABILITY         │ You are OK losing messages (use UDP)     │
+│ (data must survive restarts)│                                          │
+└─────────────────────────────┴──────────────────────────────────────────┘</code></pre></div>
+<hr>
+<h2>🚫 WHEN NOT TO USE</h2>
+<div class="relative"><pre style="color: rgb(57, 58, 52); font-family: Consolas, &quot;Bitstream Vera Sans Mono&quot;, &quot;Courier New&quot;, Courier, monospace; direction: ltr; text-align: left; white-space: pre; word-spacing: normal; word-break: normal; font-size: 0.9em; line-height: 1.2em; tab-size: 4; hyphens: none; padding: 1em; margin: 0.5em 0px; overflow: auto; border: 1px solid rgb(221, 221, 221); background-color: white;"><code style="white-space: pre-wrap; word-break: break-all;"><span>→ When your system needs SYNCHRONOUS request-response
+</span>  (Kafka is asynchronous by design)
+
+→ When total data volume is tiny and latency is not critical
+  (a simple database table or REST API is simpler)
+
+→ When you need COMPLEX ROUTING logic per message
+  (RabbitMQ has built-in exchange routing — Kafka routes only by topic/partition)
+
+→ When you have no operational capacity to manage a Kafka cluster
+  (Kafka needs disk, memory, monitoring — it is infrastructure)</code></pre></div>
+<hr>
+<h2>⚙️ HOW IT ONLY WORKS — INTERNAL MECHANICS</h2>
+<div class="relative"><pre style="color: rgb(57, 58, 52); font-family: Consolas, &quot;Bitstream Vera Sans Mono&quot;, &quot;Courier New&quot;, Courier, monospace; direction: ltr; text-align: left; white-space: pre; word-spacing: normal; word-break: normal; font-size: 0.9em; line-height: 1.2em; tab-size: 4; hyphens: none; padding: 1em; margin: 0.5em 0px; overflow: auto; border: 1px solid rgb(221, 221, 221); background-color: white;"><code style="white-space: pre-wrap; word-break: break-all;"><span>THIS IS THE MOST IMPORTANT SECTION OF PROJECT 1
+</span>Everything else in all 50 projects builds on this mental model
+
+
+STEP-BY-STEP: What happens when a message is produced and consumed
+
+
+═══════════════════════════════════════════════════════════════
+LAYER 1: THE BROKER
+═══════════════════════════════════════════════════════════════
+
+→ A Kafka BROKER is a single Kafka server process
+→ It listens on a port (default: 9092)
+→ It STORES messages on disk in a structured directory
+→ It ACCEPTS connections from producers and consumers
+→ Think of it as the RESTAURANT BUILDING itself
+
+  ┌──────────────────────────────────────────┐
+  │              KAFKA BROKER                 │
+  │           (localhost:9092)                │
+  │                                          │
+  │   ┌──────────────────────────────────┐   │
+  │   │        TOPIC: food-orders        │   │
+  │   │                                  │   │
+  │   │  [msg0] [msg1] [msg2] [msg3]     │   │
+  │   │   ↑                        ↑     │   │
+  │   │   oldest              newest     │   │
+  │   └──────────────────────────────────┘   │
+  └──────────────────────────────────────────┘
+
+
+═══════════════════════════════════════════════════════════════
+LAYER 2: THE TOPIC
+═══════════════════════════════════════════════════════════════
+
+→ A TOPIC is a NAMED category/feed
+→ It is an APPEND-ONLY LOG on disk
+→ New messages are ALWAYS added at the END
+→ Old messages are NEVER modified
+→ Messages stay for a configurable RETENTION period (default: 7 days)
+→ Think of it as the ORDER COUNTER with a long paper roll
+
+  Timeline of writes:
+  ────────────────────────────────────────────→ time
+  [offset 0] [offset 1] [offset 2] [offset 3]
+  "burger"   "pizza"    "salad"    "pasta"
+
+→ Each message gets a sequential number called OFFSET
+→ Offset 0 is the FIRST message ever written
+→ Offsets NEVER reset, NEVER reuse, ALWAYS increment
+
+
+═══════════════════════════════════════════════════════════════
+LAYER 3: THE PRODUCER
+═══════════════════════════════════════════════════════════════
+
+→ The producer is a CLIENT application
+→ It connects to the broker via TCP
+→ It SERIALIZES your data (converts string/object → bytes)
+→ It sends a PRODUCE REQUEST to the broker
+→ The broker APPENDS the message to the topic's log file
+→ The broker returns an ACKNOWLEDGMENT
+
+  Producer Flow:
+  ┌──────────┐    TCP     ┌──────────┐
+  │ PRODUCER │ ─────────→ │  BROKER  │
+  │          │  "burger"  │          │
+  │          │ ←───────── │  ack: ok │
+  └──────────┘            └──────────┘
+
+
+═══════════════════════════════════════════════════════════════
+LAYER 4: THE CONSUMER
+═══════════════════════════════════════════════════════════════
+
+→ The consumer is a CLIENT application
+→ It connects to the broker via TCP
+→ It sends a FETCH REQUEST: "give me messages from offset X"
+→ The broker reads from the log file and returns messages
+→ The consumer DESERIALIZES bytes back to string/object
+→ The consumer PROCESSES the message
+→ The consumer's offset position is tracked by Kafka
+
+  Consumer Flow:
+  ┌──────────┐    TCP     ┌──────────┐
+  │ CONSUMER │ ─────────→ │  BROKER  │
+  │          │ "fetch     │          │
+  │          │  from 0"   │          │
+  │          │ ←───────── │ "burger" │
+  └──────────┘            └──────────┘
+
+  CRITICAL INSIGHT:
+  → The consumer PULLS data from the broker
+  → The broker does NOT push data to the consumer
+  → This is a PULL-BASED model
+  → This means the consumer controls its own speed
+
+
+═══════════════════════════════════════════════════════════════
+LAYER 5: THE DISK STORAGE (What the log looks like on disk)
+═══════════════════════════════════════════════════════════════
+
+→ When you create topic "food-orders"
+→ Kafka creates a DIRECTORY on disk:
+
+  /tmp/kafka-logs/food-orders-0/
+  ├── 00000000000000000000.log      ← actual message bytes
+  ├── 00000000000000000000.index    ← offset-to-position mapping
+  └── 00000000000000000000.timeindex ← timestamp-to-offset mapping
+
+→ The ".log" file is the APPEND-ONLY file
+→ Messages are written sequentially (like writing in a notebook)
+→ This sequential write is WHY Kafka is fast
+  (sequential disk I/O is faster than random access)
+
+
+═══════════════════════════════════════════════════════════════
+LAYER 6: COORDINATION (ZooKeeper / KRaft)
+═══════════════════════════════════════════════════════════════
+
+→ Kafka needs a METADATA MANAGER
+→ Historically: Apache ZooKeeper (separate process)
+→ Modern (3.3+): KRaft mode (built-in, no ZooKeeper needed)
+
+→ This metadata manager tracks:
+  • Which brokers are alive
+  • Which topics exist
+  • Which broker is responsible for which topic
+  • Consumer group offsets (in older versions)
+
+→ For this project: We use ZooKeeper (widely documented)
+→ KRaft is the future, but ZooKeeper is still in most tutorials
+
+
+═══════════════════════════════════════════════════════════════
+COMPLETE INTERNAL FLOW: Producing + Consuming ONE message
+═══════════════════════════════════════════════════════════════
+
+  1. ZooKeeper starts → port 2181
+  2. Kafka Broker starts → registers with ZooKeeper → port 9092
+  3. Topic "food-orders" created → directory created on disk
+  4. Producer connects to broker
+  5. Producer serializes "1x Burger, extra cheese" → bytes
+  6. Producer sends ProduceRequest(topic=food-orders, value=bytes)
+  7. Broker appends bytes to food-orders-0/00000000.log
+  8. Broker assigns offset 0 to this message
+  9. Broker sends ProduceResponse(offset=0, status=success)
+  10. Consumer connects to broker with group.id="kitchen-app"
+  11. Consumer sends FetchRequest(topic=food-orders, offset=0)
+  12. Broker reads from food-orders-0/00000000.log at offset 0
+  13. Broker sends FetchResponse(offset=0, value=bytes)
+  14. Consumer deserializes bytes → "1x Burger, extra cheese"
+  15. Consumer commits offset 0 → "I have read up to offset 0"
+  16. Next fetch will start from offset 1</code></pre></div>
+<hr>
+<h2>🚨 COMMON PITFALLS AND FAILURE MODES</h2>
+<div class="relative"><pre style="color: rgb(57, 58, 52); font-family: Consolas, &quot;Bitstream Vera Sans Mono&quot;, &quot;Courier New&quot;, Courier, monospace; direction: ltr; text-align: left; white-space: pre; word-spacing: normal; word-break: normal; font-size: 0.9em; line-height: 1.2em; tab-size: 4; hyphens: none; padding: 1em; margin: 0.5em 0px; overflow: auto; border: 1px solid rgb(221, 221, 221); background-color: white;"><code style="white-space: pre-wrap; word-break: break-all;"><span>PITFALL 1: "Kafka won't start"
+</span>├── CAUSE: ZooKeeper is not running
+├── SYMPTOM: "Connection refused" in Kafka logs
+└── FIX: Always start ZooKeeper first, wait 5 seconds, then start Kafka
+
+PITFALL 2: "Producer sends but consumer sees nothing"
+├── CAUSE: Consumer started with --from-beginning NOT set
+├── SYMPTOM: Consumer is waiting for NEW messages only
+├── WHY: Default consumer behavior starts from LATEST offset
+└── FIX: Use --from-beginning flag OR set auto.offset.reset=earliest
+
+PITFALL 3: "Port 9092 already in use"
+├── CAUSE: Previous Kafka instance not shut down properly
+├── FIX: Kill the process → lsof -i :9092 → kill -9 &lt;PID&gt;
+
+PITFALL 4: "Topic already exists error"
+├── CAUSE: Re-running topic creation command
+├── FIX: Use --if-not-exists flag OR check with --list first
+
+PITFALL 5: "Messages seem to disappear after a week"
+├── CAUSE: Default retention is 168 hours (7 days)
+├── THIS IS NORMAL: Kafka auto-deletes old messages based on retention
+└── FIX: Increase retention if needed (covered in later projects)
+
+PITFALL 6: "Consumer reads same messages again after restart"
+├── CAUSE: Offset was not committed before shutdown
+├── WHY: Kafka does not know how far the consumer got
+└── FIX: Understand offset commit (deep dive in Project 6)</code></pre></div>
+<hr>
+<h2>📈 SCALABILITY CONSIDERATIONS</h2>
+<div class="relative"><pre style="color: rgb(57, 58, 52); font-family: Consolas, &quot;Bitstream Vera Sans Mono&quot;, &quot;Courier New&quot;, Courier, monospace; direction: ltr; text-align: left; white-space: pre; word-spacing: normal; word-break: normal; font-size: 0.9em; line-height: 1.2em; tab-size: 4; hyphens: none; padding: 1em; margin: 0.5em 0px; overflow: auto; border: 1px solid rgb(221, 221, 221); background-color: white;"><code style="white-space: pre-wrap; word-break: break-all;"><span>AT THIS STAGE (single broker, single partition):
+</span>→ Maximum throughput ≈ limited by single disk I/O
+→ Maximum consumers reading same partition = 1 per consumer group
+→ Maximum producers = unlimited (but all write to same partition)
+
+SCALING QUESTIONS FOR LATER PROJECTS:
+→ What if one broker cannot handle the load?
+  → Add more brokers (multi-broker cluster) — Project 40
+→ What if one partition is a bottleneck?
+  → Add more partitions — Project 3
+→ What if one consumer is too slow?
+  → Add more consumers in same group — Project 5
+
+FOR NOW: Understand that this single-broker single-partition setup
+is the ATOMIC UNIT of Kafka — everything else is scaling THIS up</code></pre></div>
+<hr>
+<h2>🔍 INTERPRETABILITY CONSIDERATIONS</h2>
+<div class="relative"><pre style="color: rgb(57, 58, 52); font-family: Consolas, &quot;Bitstream Vera Sans Mono&quot;, &quot;Courier New&quot;, Courier, monospace; direction: ltr; text-align: left; white-space: pre; word-spacing: normal; word-break: normal; font-size: 0.9em; line-height: 1.2em; tab-size: 4; hyphens: none; padding: 1em; margin: 0.5em 0px; overflow: auto; border: 1px solid rgb(221, 221, 221); background-color: white;"><code style="white-space: pre-wrap; word-break: break-all;"><span>HOW DO YOU KNOW WHAT IS HAPPENING?
+</span>
+1. BROKER LOGS
+   → Location: kafka-install-dir/logs/server.log
+   → Shows: startup, topic creation, connection events
+   → Read this FIRST when something goes wrong
+
+2. CLI TOOLS
+   → kafka-topics.sh --describe → shows topic configuration
+   → kafka-console-consumer.sh → see messages in real-time
+   → These are your EYES into Kafka
+
+3. MESSAGE OFFSETS
+   → Every message has a number (offset)
+   → You can ALWAYS point to a specific message by its offset
+   → This makes debugging traceable
+
+4. DATA DIRECTORY
+   → Check /tmp/kafka-logs/ → see actual files on disk
+   → You can verify messages are PHYSICALLY stored
+   → This builds trust in the system
+
+KEY INSIGHT: Kafka is NOT a black box
+→ Every message is a file on disk
+→ Every offset is a number
+→ Every log file is readable
+→ Transparency is built into the design</code></pre></div>
+<hr>
+<h2>💻 COMPLETE WORKING CODE</h2>
+<h3>STEP 1: INSTALLATION (Ubuntu/Mac — Docker alternative provided)</h3>
+<div class="relative"><pre style="color: rgb(57, 58, 52); font-family: Consolas, &quot;Bitstream Vera Sans Mono&quot;, &quot;Courier New&quot;, Courier, monospace; direction: ltr; text-align: left; white-space: pre; word-spacing: normal; word-break: normal; font-size: 0.9em; line-height: 1.2em; tab-size: 4; hyphens: none; padding: 1em; margin: 0.5em 0px; overflow: auto; border: 1px solid rgb(221, 221, 221); background-color: white;"><code style="white-space: pre-wrap; word-break: break-all;"><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># ═══════════════════════════════════════════════════════════</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># OPTION A: Download and Install Kafka Manually</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># ═══════════════════════════════════════════════════════════</span><span>
+</span>
+<span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># Download Kafka 3.7.0 (latest stable as of 2024)</span><span>
+</span><span></span><span class="token" style="color: rgb(57, 58, 52);">wget</span><span> https://downloads.apache.org/kafka/3.7.0/kafka_2.13-3.7.0.tgz
+</span>
+<span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># Extract</span><span>
+</span><span></span><span class="token" style="color: rgb(57, 58, 52);">tar</span><span> -xzf kafka_2.13-3.7.0.tgz
+</span><span></span><span class="token builtin" style="color: rgb(43, 145, 175);">cd</span><span> kafka_2.13-3.7.0
+</span>
+<span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># Verify directory structure</span><span>
+</span><span></span><span class="token" style="color: rgb(57, 58, 52);">ls</span><span> -la
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># You should see: bin/, config/, libs/, logs/ (after first run)</span></code></pre></div>
+<div class="relative"><pre style="color: rgb(57, 58, 52); font-family: Consolas, &quot;Bitstream Vera Sans Mono&quot;, &quot;Courier New&quot;, Courier, monospace; direction: ltr; text-align: left; white-space: pre; word-spacing: normal; word-break: normal; font-size: 0.9em; line-height: 1.2em; tab-size: 4; hyphens: none; padding: 1em; margin: 0.5em 0px; overflow: auto; border: 1px solid rgb(221, 221, 221); background-color: white;"><code style="white-space: pre-wrap; word-break: break-all;"><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># ═══════════════════════════════════════════════════════════</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># OPTION B: Docker Compose (Recommended for clean setup)</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># ═══════════════════════════════════════════════════════════</span><span>
+</span>
+<span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># Create a file called docker-compose.yml</span></code></pre></div>
+<div class="relative"><pre style="color: rgb(57, 58, 52); font-family: Consolas, &quot;Bitstream Vera Sans Mono&quot;, &quot;Courier New&quot;, Courier, monospace; direction: ltr; text-align: left; white-space: pre; word-spacing: normal; word-break: normal; font-size: 0.9em; line-height: 1.2em; tab-size: 4; hyphens: none; padding: 1em; margin: 0.5em 0px; overflow: auto; border: 1px solid rgb(221, 221, 221); background-color: white;"><code style="white-space: pre-wrap; word-break: break-all;"><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># docker-compose.yml</span><span>
+</span><span></span><span class="token key" style="color: rgb(0, 0, 255);">version</span><span class="token" style="color: rgb(57, 58, 52);">:</span><span> </span><span class="token" style="color: rgb(163, 21, 21);">'3.8'</span><span>
+</span><span></span><span class="token key" style="color: rgb(0, 0, 255);">services</span><span class="token" style="color: rgb(57, 58, 52);">:</span><span>
+</span><span>  </span><span class="token key" style="color: rgb(0, 0, 255);">zookeeper</span><span class="token" style="color: rgb(57, 58, 52);">:</span><span>
+</span><span>    </span><span class="token key" style="color: rgb(0, 0, 255);">image</span><span class="token" style="color: rgb(57, 58, 52);">:</span><span> confluentinc/cp</span><span class="token" style="color: rgb(57, 58, 52);">-</span><span>zookeeper</span><span class="token" style="color: rgb(57, 58, 52);">:</span><span>7.6.0
+</span><span>    </span><span class="token key" style="color: rgb(0, 0, 255);">hostname</span><span class="token" style="color: rgb(57, 58, 52);">:</span><span> zookeeper
+</span><span>    </span><span class="token key" style="color: rgb(0, 0, 255);">container_name</span><span class="token" style="color: rgb(57, 58, 52);">:</span><span> zookeeper
+</span><span>    </span><span class="token key" style="color: rgb(0, 0, 255);">ports</span><span class="token" style="color: rgb(57, 58, 52);">:</span><span>
+</span><span>      </span><span class="token" style="color: rgb(57, 58, 52);">-</span><span> </span><span class="token" style="color: rgb(163, 21, 21);">"2181:2181"</span><span>
+</span><span>    </span><span class="token key" style="color: rgb(0, 0, 255);">environment</span><span class="token" style="color: rgb(57, 58, 52);">:</span><span>
+</span><span>      </span><span class="token key" style="color: rgb(0, 0, 255);">ZOOKEEPER_CLIENT_PORT</span><span class="token" style="color: rgb(57, 58, 52);">:</span><span> </span><span class="token" style="color: rgb(54, 172, 170);">2181</span><span>
+</span><span>      </span><span class="token key" style="color: rgb(0, 0, 255);">ZOOKEEPER_TICK_TIME</span><span class="token" style="color: rgb(57, 58, 52);">:</span><span> </span><span class="token" style="color: rgb(54, 172, 170);">2000</span><span>
+</span>
+<span>  </span><span class="token key" style="color: rgb(0, 0, 255);">kafka</span><span class="token" style="color: rgb(57, 58, 52);">:</span><span>
+</span><span>    </span><span class="token key" style="color: rgb(0, 0, 255);">image</span><span class="token" style="color: rgb(57, 58, 52);">:</span><span> confluentinc/cp</span><span class="token" style="color: rgb(57, 58, 52);">-</span><span>kafka</span><span class="token" style="color: rgb(57, 58, 52);">:</span><span>7.6.0
+</span><span>    </span><span class="token key" style="color: rgb(0, 0, 255);">hostname</span><span class="token" style="color: rgb(57, 58, 52);">:</span><span> kafka
+</span><span>    </span><span class="token key" style="color: rgb(0, 0, 255);">container_name</span><span class="token" style="color: rgb(57, 58, 52);">:</span><span> kafka
+</span><span>    </span><span class="token key" style="color: rgb(0, 0, 255);">depends_on</span><span class="token" style="color: rgb(57, 58, 52);">:</span><span>
+</span><span>      </span><span class="token" style="color: rgb(57, 58, 52);">-</span><span> zookeeper
+</span><span>    </span><span class="token key" style="color: rgb(0, 0, 255);">ports</span><span class="token" style="color: rgb(57, 58, 52);">:</span><span>
+</span><span>      </span><span class="token" style="color: rgb(57, 58, 52);">-</span><span> </span><span class="token" style="color: rgb(163, 21, 21);">"9092:9092"</span><span>
+</span><span>    </span><span class="token key" style="color: rgb(0, 0, 255);">environment</span><span class="token" style="color: rgb(57, 58, 52);">:</span><span>
+</span><span>      </span><span class="token key" style="color: rgb(0, 0, 255);">KAFKA_BROKER_ID</span><span class="token" style="color: rgb(57, 58, 52);">:</span><span> </span><span class="token" style="color: rgb(54, 172, 170);">1</span><span>
+</span><span>      </span><span class="token key" style="color: rgb(0, 0, 255);">KAFKA_ZOOKEEPER_CONNECT</span><span class="token" style="color: rgb(57, 58, 52);">:</span><span> </span><span class="token" style="color: rgb(163, 21, 21);">'zookeeper:2181'</span><span>
+</span><span>      </span><span class="token key" style="color: rgb(0, 0, 255);">KAFKA_LISTENER_SECURITY_PROTOCOL_MAP</span><span class="token" style="color: rgb(57, 58, 52);">:</span><span> PLAINTEXT</span><span class="token" style="color: rgb(57, 58, 52);">:</span><span>PLAINTEXT</span><span class="token" style="color: rgb(57, 58, 52);">,</span><span>PLAINTEXT_HOST</span><span class="token" style="color: rgb(57, 58, 52);">:</span><span>PLAINTEXT
+</span><span>      </span><span class="token key" style="color: rgb(0, 0, 255);">KAFKA_ADVERTISED_LISTENERS</span><span class="token" style="color: rgb(57, 58, 52);">:</span><span> PLAINTEXT</span><span class="token" style="color: rgb(57, 58, 52);">:</span><span>//kafka</span><span class="token" style="color: rgb(57, 58, 52);">:</span><span class="token" style="color: rgb(54, 172, 170);">29092</span><span class="token" style="color: rgb(57, 58, 52);">,</span><span>PLAINTEXT_HOST</span><span class="token" style="color: rgb(57, 58, 52);">:</span><span>//localhost</span><span class="token" style="color: rgb(57, 58, 52);">:</span><span class="token" style="color: rgb(54, 172, 170);">9092</span><span>
+</span><span>      </span><span class="token key" style="color: rgb(0, 0, 255);">KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR</span><span class="token" style="color: rgb(57, 58, 52);">:</span><span> </span><span class="token" style="color: rgb(54, 172, 170);">1</span><span>
+</span><span>      </span><span class="token key" style="color: rgb(0, 0, 255);">KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS</span><span class="token" style="color: rgb(57, 58, 52);">:</span><span> </span><span class="token" style="color: rgb(54, 172, 170);">0</span></code></pre></div>
+<div class="relative"><pre style="color: rgb(57, 58, 52); font-family: Consolas, &quot;Bitstream Vera Sans Mono&quot;, &quot;Courier New&quot;, Courier, monospace; direction: ltr; text-align: left; white-space: pre; word-spacing: normal; word-break: normal; font-size: 0.9em; line-height: 1.2em; tab-size: 4; hyphens: none; padding: 1em; margin: 0.5em 0px; overflow: auto; border: 1px solid rgb(221, 221, 221); background-color: white;"><code style="white-space: pre-wrap; word-break: break-all;"><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># Start everything</span><span>
+</span><span></span><span class="token" style="color: rgb(57, 58, 52);">docker-compose</span><span> up -d
+</span>
+<span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># Verify both containers are running</span><span>
+</span><span></span><span class="token" style="color: rgb(57, 58, 52);">docker-compose</span><span> </span><span class="token" style="color: rgb(57, 58, 52);">ps</span><span>
+</span>
+<span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># Expected output:</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># NAME         STATUS</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># zookeeper    running   0.0.0.0:2181-&gt;2181/tcp</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># kafka        running   0.0.0.0:9092-&gt;9092/tcp</span></code></pre></div>
+<h3>STEP 2: CREATE THE TOPIC</h3>
+<div class="relative"><pre style="color: rgb(57, 58, 52); font-family: Consolas, &quot;Bitstream Vera Sans Mono&quot;, &quot;Courier New&quot;, Courier, monospace; direction: ltr; text-align: left; white-space: pre; word-spacing: normal; word-break: normal; font-size: 0.9em; line-height: 1.2em; tab-size: 4; hyphens: none; padding: 1em; margin: 0.5em 0px; overflow: auto; border: 1px solid rgb(221, 221, 221); background-color: white;"><code style="white-space: pre-wrap; word-break: break-all;"><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># ═══════════════════════════════════════════════════════════</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># If using manual install:</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># ═══════════════════════════════════════════════════════════</span><span>
+</span><span>bin/kafka-topics.sh --create </span><span class="token" style="color: rgb(57, 58, 52);">\</span><span>
+</span><span>  --topic food-orders </span><span class="token" style="color: rgb(57, 58, 52);">\</span><span>
+</span><span>  --bootstrap-server localhost:9092 </span><span class="token" style="color: rgb(57, 58, 52);">\</span><span>
+</span><span>  --partitions </span><span class="token" style="color: rgb(54, 172, 170);">1</span><span> </span><span class="token" style="color: rgb(57, 58, 52);">\</span><span>
+</span><span>  --replication-factor </span><span class="token" style="color: rgb(54, 172, 170);">1</span><span>
+</span>
+<span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># ═══════════════════════════════════════════════════════════</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># If using Docker:</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># ═══════════════════════════════════════════════════════════</span><span>
+</span><span></span><span class="token" style="color: rgb(57, 58, 52);">docker</span><span> </span><span class="token builtin" style="color: rgb(43, 145, 175);">exec</span><span> -it kafka kafka-topics --create </span><span class="token" style="color: rgb(57, 58, 52);">\</span><span>
+</span><span>  --topic food-orders </span><span class="token" style="color: rgb(57, 58, 52);">\</span><span>
+</span><span>  --bootstrap-server localhost:9092 </span><span class="token" style="color: rgb(57, 58, 52);">\</span><span>
+</span><span>  --partitions </span><span class="token" style="color: rgb(54, 172, 170);">1</span><span> </span><span class="token" style="color: rgb(57, 58, 52);">\</span><span>
+</span><span>  --replication-factor </span><span class="token" style="color: rgb(54, 172, 170);">1</span><span>
+</span>
+<span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># Verify topic was created</span><span>
+</span><span></span><span class="token" style="color: rgb(57, 58, 52);">docker</span><span> </span><span class="token builtin" style="color: rgb(43, 145, 175);">exec</span><span> -it kafka kafka-topics --list </span><span class="token" style="color: rgb(57, 58, 52);">\</span><span>
+</span>  --bootstrap-server localhost:9092
+
+<span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># Expected output:</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># food-orders</span><span>
+</span>
+<span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># Describe topic to see details</span><span>
+</span><span></span><span class="token" style="color: rgb(57, 58, 52);">docker</span><span> </span><span class="token builtin" style="color: rgb(43, 145, 175);">exec</span><span> -it kafka kafka-topics --describe </span><span class="token" style="color: rgb(57, 58, 52);">\</span><span>
+</span><span>  --topic food-orders </span><span class="token" style="color: rgb(57, 58, 52);">\</span><span>
+</span>  --bootstrap-server localhost:9092
+
+<span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># Expected output:</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># Topic: food-orders  PartitionCount: 1  ReplicationFactor: 1</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># Topic: food-orders  Partition: 0  Leader: 1  Replicas: 1  Isr: 1</span></code></pre></div>
+<h3>STEP 3: INSTALL PYTHON KAFKA LIBRARY</h3>
+<div class="relative"><pre style="color: rgb(57, 58, 52); font-family: Consolas, &quot;Bitstream Vera Sans Mono&quot;, &quot;Courier New&quot;, Courier, monospace; direction: ltr; text-align: left; white-space: pre; word-spacing: normal; word-break: normal; font-size: 0.9em; line-height: 1.2em; tab-size: 4; hyphens: none; padding: 1em; margin: 0.5em 0px; overflow: auto; border: 1px solid rgb(221, 221, 221); background-color: white;"><code style="white-space: pre-wrap; word-break: break-all;"><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># Install confluent-kafka Python client</span><span>
+</span><span>pip </span><span class="token" style="color: rgb(57, 58, 52);">install</span><span> confluent-kafka</span></code></pre></div>
+<h3>STEP 4: THE PRODUCER (The Waiter)</h3>
+<div class="relative"><pre style="color: rgb(57, 58, 52); font-family: Consolas, &quot;Bitstream Vera Sans Mono&quot;, &quot;Courier New&quot;, Courier, monospace; direction: ltr; text-align: left; white-space: pre; word-spacing: normal; word-break: normal; font-size: 0.9em; line-height: 1.2em; tab-size: 4; hyphens: none; padding: 1em; margin: 0.5em 0px; overflow: auto; border: 1px solid rgb(221, 221, 221); background-color: white;"><code style="white-space: pre-wrap; word-break: break-all;"><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># ═══════════════════════════════════════════════════════════</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># file: producer_waiter.py</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># THE WAITER — Takes an order and drops it on the counter</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># ═══════════════════════════════════════════════════════════</span><span>
+</span>
+<span></span><span class="token" style="color: rgb(0, 0, 255);">from</span><span> confluent_kafka </span><span class="token" style="color: rgb(0, 0, 255);">import</span><span> Producer
+</span><span></span><span class="token" style="color: rgb(0, 0, 255);">import</span><span> json
+</span><span></span><span class="token" style="color: rgb(0, 0, 255);">import</span><span> time
+</span>
+<span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># ─────────────────────────────────────────────────────────</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># CONFIGURATION</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># ─────────────────────────────────────────────────────────</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># bootstrap.servers = the address of the Kafka broker</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># This is how the producer FINDS the Kafka cluster</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># Think of it as the restaurant's street address</span><span>
+</span>
+<span>config </span><span class="token" style="color: rgb(57, 58, 52);">=</span><span> </span><span class="token" style="color: rgb(57, 58, 52);">{</span><span>
+</span><span>    </span><span class="token" style="color: rgb(163, 21, 21);">'bootstrap.servers'</span><span class="token" style="color: rgb(57, 58, 52);">:</span><span> </span><span class="token" style="color: rgb(163, 21, 21);">'localhost:9092'</span><span class="token" style="color: rgb(57, 58, 52);">,</span><span>
+</span><span></span><span class="token" style="color: rgb(57, 58, 52);">}</span><span>
+</span>
+<span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># ─────────────────────────────────────────────────────────</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># DELIVERY CALLBACK</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># ─────────────────────────────────────────────────────────</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># This function is called AFTER the broker acknowledges</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># Think: the counter confirms "order slip received"</span><span>
+</span>
+<span></span><span class="token" style="color: rgb(0, 0, 255);">def</span><span> </span><span class="token" style="color: rgb(57, 58, 52);">delivery_callback</span><span class="token" style="color: rgb(57, 58, 52);">(</span><span>err</span><span class="token" style="color: rgb(57, 58, 52);">,</span><span> msg</span><span class="token" style="color: rgb(57, 58, 52);">)</span><span class="token" style="color: rgb(57, 58, 52);">:</span><span>
+</span><span>    </span><span class="token" style="color: rgb(0, 0, 255);">if</span><span> err </span><span class="token" style="color: rgb(0, 0, 255);">is</span><span> </span><span class="token" style="color: rgb(0, 0, 255);">not</span><span> </span><span class="token" style="color: rgb(54, 172, 170);">None</span><span class="token" style="color: rgb(57, 58, 52);">:</span><span>
+</span><span>        </span><span class="token" style="color: rgb(0, 0, 255);">print</span><span class="token" style="color: rgb(57, 58, 52);">(</span><span class="token string-interpolation" style="color: rgb(163, 21, 21);">f'❌ DELIVERY FAILED: </span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">{</span><span class="token string-interpolation interpolation">err</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">}</span><span class="token string-interpolation" style="color: rgb(163, 21, 21);">'</span><span class="token" style="color: rgb(57, 58, 52);">)</span><span>
+</span><span>    </span><span class="token" style="color: rgb(0, 0, 255);">else</span><span class="token" style="color: rgb(57, 58, 52);">:</span><span>
+</span><span>        </span><span class="token" style="color: rgb(0, 0, 255);">print</span><span class="token" style="color: rgb(57, 58, 52);">(</span><span class="token string-interpolation" style="color: rgb(163, 21, 21);">f'✅ ORDER DELIVERED!'</span><span class="token" style="color: rgb(57, 58, 52);">)</span><span>
+</span><span>        </span><span class="token" style="color: rgb(0, 0, 255);">print</span><span class="token" style="color: rgb(57, 58, 52);">(</span><span class="token string-interpolation" style="color: rgb(163, 21, 21);">f'   Topic    : </span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">{</span><span class="token string-interpolation interpolation">msg</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">.</span><span class="token string-interpolation interpolation">topic</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">(</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">)</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">}</span><span class="token string-interpolation" style="color: rgb(163, 21, 21);">'</span><span class="token" style="color: rgb(57, 58, 52);">)</span><span>
+</span><span>        </span><span class="token" style="color: rgb(0, 0, 255);">print</span><span class="token" style="color: rgb(57, 58, 52);">(</span><span class="token string-interpolation" style="color: rgb(163, 21, 21);">f'   Partition: </span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">{</span><span class="token string-interpolation interpolation">msg</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">.</span><span class="token string-interpolation interpolation">partition</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">(</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">)</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">}</span><span class="token string-interpolation" style="color: rgb(163, 21, 21);">'</span><span class="token" style="color: rgb(57, 58, 52);">)</span><span>
+</span><span>        </span><span class="token" style="color: rgb(0, 0, 255);">print</span><span class="token" style="color: rgb(57, 58, 52);">(</span><span class="token string-interpolation" style="color: rgb(163, 21, 21);">f'   Offset   : </span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">{</span><span class="token string-interpolation interpolation">msg</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">.</span><span class="token string-interpolation interpolation">offset</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">(</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">)</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">}</span><span class="token string-interpolation" style="color: rgb(163, 21, 21);">'</span><span class="token" style="color: rgb(57, 58, 52);">)</span><span>
+</span><span>        </span><span class="token" style="color: rgb(0, 0, 255);">print</span><span class="token" style="color: rgb(57, 58, 52);">(</span><span class="token string-interpolation" style="color: rgb(163, 21, 21);">f'   Value    : </span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">{</span><span class="token string-interpolation interpolation">msg</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">.</span><span class="token string-interpolation interpolation">value</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">(</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">)</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">.</span><span class="token string-interpolation interpolation">decode</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">(</span><span class="token string-interpolation interpolation" style="color: rgb(163, 21, 21);">"utf-8"</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">)</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">}</span><span class="token string-interpolation" style="color: rgb(163, 21, 21);">'</span><span class="token" style="color: rgb(57, 58, 52);">)</span><span>
+</span>
+<span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># ─────────────────────────────────────────────────────────</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># CREATE PRODUCER INSTANCE</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># ─────────────────────────────────────────────────────────</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># This establishes a TCP connection to the broker</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># The producer is now READY to send messages</span><span>
+</span>
+<span>producer </span><span class="token" style="color: rgb(57, 58, 52);">=</span><span> Producer</span><span class="token" style="color: rgb(57, 58, 52);">(</span><span>config</span><span class="token" style="color: rgb(57, 58, 52);">)</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 0, 255);">print</span><span class="token" style="color: rgb(57, 58, 52);">(</span><span class="token" style="color: rgb(163, 21, 21);">"🍔 ByteBite Diner — Waiter Station Ready\n"</span><span class="token" style="color: rgb(57, 58, 52);">)</span><span>
+</span>
+<span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># ─────────────────────────────────────────────────────────</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># PREPARE THE ORDER (THE MESSAGE)</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># ─────────────────────────────────────────────────────────</span><span>
+</span>
+<span>order </span><span class="token" style="color: rgb(57, 58, 52);">=</span><span> </span><span class="token" style="color: rgb(57, 58, 52);">{</span><span>
+</span><span>    </span><span class="token" style="color: rgb(163, 21, 21);">"order_id"</span><span class="token" style="color: rgb(57, 58, 52);">:</span><span> </span><span class="token" style="color: rgb(54, 172, 170);">1</span><span class="token" style="color: rgb(57, 58, 52);">,</span><span>
+</span><span>    </span><span class="token" style="color: rgb(163, 21, 21);">"customer"</span><span class="token" style="color: rgb(57, 58, 52);">:</span><span> </span><span class="token" style="color: rgb(163, 21, 21);">"Alice"</span><span class="token" style="color: rgb(57, 58, 52);">,</span><span>
+</span><span>    </span><span class="token" style="color: rgb(163, 21, 21);">"item"</span><span class="token" style="color: rgb(57, 58, 52);">:</span><span> </span><span class="token" style="color: rgb(163, 21, 21);">"1x Burger, extra cheese"</span><span class="token" style="color: rgb(57, 58, 52);">,</span><span>
+</span><span>    </span><span class="token" style="color: rgb(163, 21, 21);">"table"</span><span class="token" style="color: rgb(57, 58, 52);">:</span><span> </span><span class="token" style="color: rgb(54, 172, 170);">5</span><span class="token" style="color: rgb(57, 58, 52);">,</span><span>
+</span><span>    </span><span class="token" style="color: rgb(163, 21, 21);">"timestamp"</span><span class="token" style="color: rgb(57, 58, 52);">:</span><span> time</span><span class="token" style="color: rgb(57, 58, 52);">.</span><span>time</span><span class="token" style="color: rgb(57, 58, 52);">(</span><span class="token" style="color: rgb(57, 58, 52);">)</span><span>
+</span><span></span><span class="token" style="color: rgb(57, 58, 52);">}</span><span>
+</span>
+<span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># Convert the order dict to a JSON string, then to bytes</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># Kafka deals in BYTES — it does not understand Python dicts</span><span>
+</span><span>order_bytes </span><span class="token" style="color: rgb(57, 58, 52);">=</span><span> json</span><span class="token" style="color: rgb(57, 58, 52);">.</span><span>dumps</span><span class="token" style="color: rgb(57, 58, 52);">(</span><span>order</span><span class="token" style="color: rgb(57, 58, 52);">)</span><span class="token" style="color: rgb(57, 58, 52);">.</span><span>encode</span><span class="token" style="color: rgb(57, 58, 52);">(</span><span class="token" style="color: rgb(163, 21, 21);">'utf-8'</span><span class="token" style="color: rgb(57, 58, 52);">)</span><span>
+</span>
+<span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># ─────────────────────────────────────────────────────────</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># PRODUCE THE MESSAGE</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># ─────────────────────────────────────────────────────────</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># .produce() puts the message in an INTERNAL BUFFER</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># It does NOT immediately send to broker</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># Think: waiter writes the slip but hasn't walked to counter yet</span><span>
+</span>
+<span>topic_name </span><span class="token" style="color: rgb(57, 58, 52);">=</span><span> </span><span class="token" style="color: rgb(163, 21, 21);">'food-orders'</span><span>
+</span>
+<span>producer</span><span class="token" style="color: rgb(57, 58, 52);">.</span><span>produce</span><span class="token" style="color: rgb(57, 58, 52);">(</span><span>
+</span><span>    topic</span><span class="token" style="color: rgb(57, 58, 52);">=</span><span>topic_name</span><span class="token" style="color: rgb(57, 58, 52);">,</span><span>
+</span><span>    value</span><span class="token" style="color: rgb(57, 58, 52);">=</span><span>order_bytes</span><span class="token" style="color: rgb(57, 58, 52);">,</span><span>
+</span><span>    callback</span><span class="token" style="color: rgb(57, 58, 52);">=</span><span>delivery_callback
+</span><span></span><span class="token" style="color: rgb(57, 58, 52);">)</span><span>
+</span>
+<span></span><span class="token" style="color: rgb(0, 0, 255);">print</span><span class="token" style="color: rgb(57, 58, 52);">(</span><span class="token string-interpolation" style="color: rgb(163, 21, 21);">f"📝 Order written to buffer: </span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">{</span><span class="token string-interpolation interpolation">order</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">[</span><span class="token string-interpolation interpolation" style="color: rgb(163, 21, 21);">'item'</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">]</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">}</span><span class="token string-interpolation" style="color: rgb(163, 21, 21);">"</span><span class="token" style="color: rgb(57, 58, 52);">)</span><span>
+</span>
+<span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># ─────────────────────────────────────────────────────────</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># FLUSH — Force send all buffered messages</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># ─────────────────────────────────────────────────────────</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># .flush() blocks until ALL messages in the buffer</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># have been delivered (or failed)</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># Think: waiter walks to counter and places ALL slips</span><span>
+</span>
+<span>producer</span><span class="token" style="color: rgb(57, 58, 52);">.</span><span>flush</span><span class="token" style="color: rgb(57, 58, 52);">(</span><span class="token" style="color: rgb(57, 58, 52);">)</span><span>
+</span>
+<span></span><span class="token" style="color: rgb(0, 0, 255);">print</span><span class="token" style="color: rgb(57, 58, 52);">(</span><span class="token" style="color: rgb(163, 21, 21);">"\n✨ All orders have been sent to the kitchen counter!"</span><span class="token" style="color: rgb(57, 58, 52);">)</span></code></pre></div>
+<h3>STEP 5: THE CONSUMER (The Kitchen)</h3>
+<div class="relative"><pre style="color: rgb(57, 58, 52); font-family: Consolas, &quot;Bitstream Vera Sans Mono&quot;, &quot;Courier New&quot;, Courier, monospace; direction: ltr; text-align: left; white-space: pre; word-spacing: normal; word-break: normal; font-size: 0.9em; line-height: 1.2em; tab-size: 4; hyphens: none; padding: 1em; margin: 0.5em 0px; overflow: auto; border: 1px solid rgb(221, 221, 221); background-color: white;"><code style="white-space: pre-wrap; word-break: break-all;"><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># ═══════════════════════════════════════════════════════════</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># file: consumer_kitchen.py</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># THE KITCHEN — Picks up order slips from the counter</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># ═══════════════════════════════════════════════════════════</span><span>
+</span>
+<span></span><span class="token" style="color: rgb(0, 0, 255);">from</span><span> confluent_kafka </span><span class="token" style="color: rgb(0, 0, 255);">import</span><span> Consumer</span><span class="token" style="color: rgb(57, 58, 52);">,</span><span> KafkaError
+</span><span></span><span class="token" style="color: rgb(0, 0, 255);">import</span><span> json
+</span>
+<span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># ─────────────────────────────────────────────────────────</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># CONFIGURATION</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># ─────────────────────────────────────────────────────────</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># bootstrap.servers = where to find the Kafka broker</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># group.id = a UNIQUE name for this consumer application</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;">#   → Kafka uses this to track which messages have been read</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;">#   → Think: kitchen shift team name — "morning-shift" vs "evening-shift"</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># auto.offset.reset = where to start reading if NO prior offset exists</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;">#   → 'earliest' = start from the VERY FIRST message in the topic</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;">#   → 'latest'   = start from ONLY new messages going forward</span><span>
+</span>
+<span>config </span><span class="token" style="color: rgb(57, 58, 52);">=</span><span> </span><span class="token" style="color: rgb(57, 58, 52);">{</span><span>
+</span><span>    </span><span class="token" style="color: rgb(163, 21, 21);">'bootstrap.servers'</span><span class="token" style="color: rgb(57, 58, 52);">:</span><span> </span><span class="token" style="color: rgb(163, 21, 21);">'localhost:9092'</span><span class="token" style="color: rgb(57, 58, 52);">,</span><span>
+</span><span>    </span><span class="token" style="color: rgb(163, 21, 21);">'group.id'</span><span class="token" style="color: rgb(57, 58, 52);">:</span><span> </span><span class="token" style="color: rgb(163, 21, 21);">'kitchen-app'</span><span class="token" style="color: rgb(57, 58, 52);">,</span><span>
+</span><span>    </span><span class="token" style="color: rgb(163, 21, 21);">'auto.offset.reset'</span><span class="token" style="color: rgb(57, 58, 52);">:</span><span> </span><span class="token" style="color: rgb(163, 21, 21);">'earliest'</span><span class="token" style="color: rgb(57, 58, 52);">,</span><span>
+</span><span></span><span class="token" style="color: rgb(57, 58, 52);">}</span><span>
+</span>
+<span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># ─────────────────────────────────────────────────────────</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># CREATE CONSUMER INSTANCE</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># ─────────────────────────────────────────────────────────</span><span>
+</span>
+<span>consumer </span><span class="token" style="color: rgb(57, 58, 52);">=</span><span> Consumer</span><span class="token" style="color: rgb(57, 58, 52);">(</span><span>config</span><span class="token" style="color: rgb(57, 58, 52);">)</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 0, 255);">print</span><span class="token" style="color: rgb(57, 58, 52);">(</span><span class="token" style="color: rgb(163, 21, 21);">"👨‍🍳 ByteBite Diner — Kitchen Station Ready\n"</span><span class="token" style="color: rgb(57, 58, 52);">)</span><span>
+</span>
+<span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># ─────────────────────────────────────────────────────────</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># SUBSCRIBE TO TOPIC</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># ─────────────────────────────────────────────────────────</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># Tell the consumer WHICH topic(s) to read from</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># Think: kitchen team says "we handle food-orders counter"</span><span>
+</span>
+<span>consumer</span><span class="token" style="color: rgb(57, 58, 52);">.</span><span>subscribe</span><span class="token" style="color: rgb(57, 58, 52);">(</span><span class="token" style="color: rgb(57, 58, 52);">[</span><span class="token" style="color: rgb(163, 21, 21);">'food-orders'</span><span class="token" style="color: rgb(57, 58, 52);">]</span><span class="token" style="color: rgb(57, 58, 52);">)</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 0, 255);">print</span><span class="token" style="color: rgb(57, 58, 52);">(</span><span class="token" style="color: rgb(163, 21, 21);">"👀 Watching the food-orders counter...\n"</span><span class="token" style="color: rgb(57, 58, 52);">)</span><span>
+</span>
+<span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># ─────────────────────────────────────────────────────────</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># POLL LOOP — The core consumption pattern</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># ─────────────────────────────────────────────────────────</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># The consumer continuously ASKS the broker for new messages</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># .poll(timeout) = wait up to `timeout` seconds for a message</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># If no message arrives in that time, returns None</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># Think: kitchen staff checking the counter every second</span><span>
+</span>
+<span></span><span class="token" style="color: rgb(0, 0, 255);">try</span><span class="token" style="color: rgb(57, 58, 52);">:</span><span>
+</span><span>    message_count </span><span class="token" style="color: rgb(57, 58, 52);">=</span><span> </span><span class="token" style="color: rgb(54, 172, 170);">0</span><span>
+</span><span>    max_messages </span><span class="token" style="color: rgb(57, 58, 52);">=</span><span> </span><span class="token" style="color: rgb(54, 172, 170);">5</span><span>           </span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># Stop after 5 messages (for demo)</span><span>
+</span><span>    empty_polls </span><span class="token" style="color: rgb(57, 58, 52);">=</span><span> </span><span class="token" style="color: rgb(54, 172, 170);">0</span><span>
+</span><span>    max_empty_polls </span><span class="token" style="color: rgb(57, 58, 52);">=</span><span> </span><span class="token" style="color: rgb(54, 172, 170);">10</span><span>       </span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># Stop after 10 empty polls (no more data)</span><span>
+</span>
+<span>    </span><span class="token" style="color: rgb(0, 0, 255);">while</span><span> message_count </span><span class="token" style="color: rgb(57, 58, 52);">&lt;</span><span> max_messages </span><span class="token" style="color: rgb(0, 0, 255);">and</span><span> empty_polls </span><span class="token" style="color: rgb(57, 58, 52);">&lt;</span><span> max_empty_polls</span><span class="token" style="color: rgb(57, 58, 52);">:</span><span>
+</span>
+<span>        </span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># ─────────────────────────────────────────────────</span><span>
+</span><span>        </span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># POLL for a single message</span><span>
+</span><span>        </span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># timeout=1.0 means wait up to 1 second</span><span>
+</span><span>        </span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># ─────────────────────────────────────────────────</span><span>
+</span><span>        msg </span><span class="token" style="color: rgb(57, 58, 52);">=</span><span> consumer</span><span class="token" style="color: rgb(57, 58, 52);">.</span><span>poll</span><span class="token" style="color: rgb(57, 58, 52);">(</span><span>timeout</span><span class="token" style="color: rgb(57, 58, 52);">=</span><span class="token" style="color: rgb(54, 172, 170);">1.0</span><span class="token" style="color: rgb(57, 58, 52);">)</span><span>
+</span>
+<span>        </span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># Case 1: No message received within timeout</span><span>
+</span><span>        </span><span class="token" style="color: rgb(0, 0, 255);">if</span><span> msg </span><span class="token" style="color: rgb(0, 0, 255);">is</span><span> </span><span class="token" style="color: rgb(54, 172, 170);">None</span><span class="token" style="color: rgb(57, 58, 52);">:</span><span>
+</span><span>            empty_polls </span><span class="token" style="color: rgb(57, 58, 52);">+=</span><span> </span><span class="token" style="color: rgb(54, 172, 170);">1</span><span>
+</span><span>            </span><span class="token" style="color: rgb(0, 0, 255);">print</span><span class="token" style="color: rgb(57, 58, 52);">(</span><span class="token string-interpolation" style="color: rgb(163, 21, 21);">f"⏳ No new orders... (waiting </span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">{</span><span class="token string-interpolation interpolation">empty_polls</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">}</span><span class="token string-interpolation" style="color: rgb(163, 21, 21);">/</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">{</span><span class="token string-interpolation interpolation">max_empty_polls</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">}</span><span class="token string-interpolation" style="color: rgb(163, 21, 21);">)"</span><span class="token" style="color: rgb(57, 58, 52);">)</span><span>
+</span><span>            </span><span class="token" style="color: rgb(0, 0, 255);">continue</span><span>
+</span>
+<span>        </span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># Case 2: An error occurred</span><span>
+</span><span>        </span><span class="token" style="color: rgb(0, 0, 255);">if</span><span> msg</span><span class="token" style="color: rgb(57, 58, 52);">.</span><span>error</span><span class="token" style="color: rgb(57, 58, 52);">(</span><span class="token" style="color: rgb(57, 58, 52);">)</span><span class="token" style="color: rgb(57, 58, 52);">:</span><span>
+</span><span>            </span><span class="token" style="color: rgb(0, 0, 255);">if</span><span> msg</span><span class="token" style="color: rgb(57, 58, 52);">.</span><span>error</span><span class="token" style="color: rgb(57, 58, 52);">(</span><span class="token" style="color: rgb(57, 58, 52);">)</span><span class="token" style="color: rgb(57, 58, 52);">.</span><span>code</span><span class="token" style="color: rgb(57, 58, 52);">(</span><span class="token" style="color: rgb(57, 58, 52);">)</span><span> </span><span class="token" style="color: rgb(57, 58, 52);">==</span><span> KafkaError</span><span class="token" style="color: rgb(57, 58, 52);">.</span><span>_PARTITION_EOF</span><span class="token" style="color: rgb(57, 58, 52);">:</span><span>
+</span><span>                </span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># This means we have read ALL messages in the partition</span><span>
+</span><span>                </span><span class="token" style="color: rgb(0, 0, 255);">print</span><span class="token" style="color: rgb(57, 58, 52);">(</span><span class="token string-interpolation" style="color: rgb(163, 21, 21);">f"📭 Reached end of partition </span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">{</span><span class="token string-interpolation interpolation">msg</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">.</span><span class="token string-interpolation interpolation">partition</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">(</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">)</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">}</span><span class="token string-interpolation" style="color: rgb(163, 21, 21);">"</span><span class="token" style="color: rgb(57, 58, 52);">)</span><span>
+</span><span>            </span><span class="token" style="color: rgb(0, 0, 255);">else</span><span class="token" style="color: rgb(57, 58, 52);">:</span><span>
+</span><span>                </span><span class="token" style="color: rgb(0, 0, 255);">print</span><span class="token" style="color: rgb(57, 58, 52);">(</span><span class="token string-interpolation" style="color: rgb(163, 21, 21);">f"❌ Error: </span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">{</span><span class="token string-interpolation interpolation">msg</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">.</span><span class="token string-interpolation interpolation">error</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">(</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">)</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">}</span><span class="token string-interpolation" style="color: rgb(163, 21, 21);">"</span><span class="token" style="color: rgb(57, 58, 52);">)</span><span>
+</span><span>            </span><span class="token" style="color: rgb(0, 0, 255);">continue</span><span>
+</span>
+<span>        </span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># Case 3: Valid message received!</span><span>
+</span><span>        empty_polls </span><span class="token" style="color: rgb(57, 58, 52);">=</span><span> </span><span class="token" style="color: rgb(54, 172, 170);">0</span><span>     </span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># Reset empty poll counter</span><span>
+</span><span>        message_count </span><span class="token" style="color: rgb(57, 58, 52);">+=</span><span> </span><span class="token" style="color: rgb(54, 172, 170);">1</span><span>
+</span>
+<span>        </span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># ─────────────────────────────────────────────────</span><span>
+</span><span>        </span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># DESERIALIZE the message</span><span>
+</span><span>        </span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># Kafka gives us bytes → we decode to string → parse JSON</span><span>
+</span><span>        </span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># ─────────────────────────────────────────────────</span><span>
+</span><span>        raw_value </span><span class="token" style="color: rgb(57, 58, 52);">=</span><span> msg</span><span class="token" style="color: rgb(57, 58, 52);">.</span><span>value</span><span class="token" style="color: rgb(57, 58, 52);">(</span><span class="token" style="color: rgb(57, 58, 52);">)</span><span class="token" style="color: rgb(57, 58, 52);">.</span><span>decode</span><span class="token" style="color: rgb(57, 58, 52);">(</span><span class="token" style="color: rgb(163, 21, 21);">'utf-8'</span><span class="token" style="color: rgb(57, 58, 52);">)</span><span>
+</span><span>        order </span><span class="token" style="color: rgb(57, 58, 52);">=</span><span> json</span><span class="token" style="color: rgb(57, 58, 52);">.</span><span>loads</span><span class="token" style="color: rgb(57, 58, 52);">(</span><span>raw_value</span><span class="token" style="color: rgb(57, 58, 52);">)</span><span>
+</span>
+<span>        </span><span class="token" style="color: rgb(0, 0, 255);">print</span><span class="token" style="color: rgb(57, 58, 52);">(</span><span class="token string-interpolation" style="color: rgb(163, 21, 21);">f"🔔 NEW ORDER RECEIVED!"</span><span class="token" style="color: rgb(57, 58, 52);">)</span><span>
+</span><span>        </span><span class="token" style="color: rgb(0, 0, 255);">print</span><span class="token" style="color: rgb(57, 58, 52);">(</span><span class="token string-interpolation" style="color: rgb(163, 21, 21);">f"   Order ID : </span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">{</span><span class="token string-interpolation interpolation">order</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">[</span><span class="token string-interpolation interpolation" style="color: rgb(163, 21, 21);">'order_id'</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">]</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">}</span><span class="token string-interpolation" style="color: rgb(163, 21, 21);">"</span><span class="token" style="color: rgb(57, 58, 52);">)</span><span>
+</span><span>        </span><span class="token" style="color: rgb(0, 0, 255);">print</span><span class="token" style="color: rgb(57, 58, 52);">(</span><span class="token string-interpolation" style="color: rgb(163, 21, 21);">f"   Customer : </span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">{</span><span class="token string-interpolation interpolation">order</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">[</span><span class="token string-interpolation interpolation" style="color: rgb(163, 21, 21);">'customer'</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">]</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">}</span><span class="token string-interpolation" style="color: rgb(163, 21, 21);">"</span><span class="token" style="color: rgb(57, 58, 52);">)</span><span>
+</span><span>        </span><span class="token" style="color: rgb(0, 0, 255);">print</span><span class="token" style="color: rgb(57, 58, 52);">(</span><span class="token string-interpolation" style="color: rgb(163, 21, 21);">f"   Item     : </span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">{</span><span class="token string-interpolation interpolation">order</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">[</span><span class="token string-interpolation interpolation" style="color: rgb(163, 21, 21);">'item'</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">]</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">}</span><span class="token string-interpolation" style="color: rgb(163, 21, 21);">"</span><span class="token" style="color: rgb(57, 58, 52);">)</span><span>
+</span><span>        </span><span class="token" style="color: rgb(0, 0, 255);">print</span><span class="token" style="color: rgb(57, 58, 52);">(</span><span class="token string-interpolation" style="color: rgb(163, 21, 21);">f"   Table    : </span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">{</span><span class="token string-interpolation interpolation">order</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">[</span><span class="token string-interpolation interpolation" style="color: rgb(163, 21, 21);">'table'</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">]</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">}</span><span class="token string-interpolation" style="color: rgb(163, 21, 21);">"</span><span class="token" style="color: rgb(57, 58, 52);">)</span><span>
+</span><span>        </span><span class="token" style="color: rgb(0, 0, 255);">print</span><span class="token" style="color: rgb(57, 58, 52);">(</span><span class="token string-interpolation" style="color: rgb(163, 21, 21);">f"   ─── Kafka Metadata ───"</span><span class="token" style="color: rgb(57, 58, 52);">)</span><span>
+</span><span>        </span><span class="token" style="color: rgb(0, 0, 255);">print</span><span class="token" style="color: rgb(57, 58, 52);">(</span><span class="token string-interpolation" style="color: rgb(163, 21, 21);">f"   Topic    : </span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">{</span><span class="token string-interpolation interpolation">msg</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">.</span><span class="token string-interpolation interpolation">topic</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">(</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">)</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">}</span><span class="token string-interpolation" style="color: rgb(163, 21, 21);">"</span><span class="token" style="color: rgb(57, 58, 52);">)</span><span>
+</span><span>        </span><span class="token" style="color: rgb(0, 0, 255);">print</span><span class="token" style="color: rgb(57, 58, 52);">(</span><span class="token string-interpolation" style="color: rgb(163, 21, 21);">f"   Partition: </span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">{</span><span class="token string-interpolation interpolation">msg</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">.</span><span class="token string-interpolation interpolation">partition</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">(</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">)</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">}</span><span class="token string-interpolation" style="color: rgb(163, 21, 21);">"</span><span class="token" style="color: rgb(57, 58, 52);">)</span><span>
+</span><span>        </span><span class="token" style="color: rgb(0, 0, 255);">print</span><span class="token" style="color: rgb(57, 58, 52);">(</span><span class="token string-interpolation" style="color: rgb(163, 21, 21);">f"   Offset   : </span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">{</span><span class="token string-interpolation interpolation">msg</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">.</span><span class="token string-interpolation interpolation">offset</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">(</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">)</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">}</span><span class="token string-interpolation" style="color: rgb(163, 21, 21);">"</span><span class="token" style="color: rgb(57, 58, 52);">)</span><span>
+</span><span>        </span><span class="token" style="color: rgb(0, 0, 255);">print</span><span class="token" style="color: rgb(57, 58, 52);">(</span><span class="token string-interpolation" style="color: rgb(163, 21, 21);">f"   Timestamp: </span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">{</span><span class="token string-interpolation interpolation">msg</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">.</span><span class="token string-interpolation interpolation">timestamp</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">(</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">)</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">}</span><span class="token string-interpolation" style="color: rgb(163, 21, 21);">"</span><span class="token" style="color: rgb(57, 58, 52);">)</span><span>
+</span><span>        </span><span class="token" style="color: rgb(0, 0, 255);">print</span><span class="token" style="color: rgb(57, 58, 52);">(</span><span class="token" style="color: rgb(57, 58, 52);">)</span><span>
+</span>
+<span></span><span class="token" style="color: rgb(0, 0, 255);">except</span><span> KeyboardInterrupt</span><span class="token" style="color: rgb(57, 58, 52);">:</span><span>
+</span><span>    </span><span class="token" style="color: rgb(0, 0, 255);">print</span><span class="token" style="color: rgb(57, 58, 52);">(</span><span class="token" style="color: rgb(163, 21, 21);">"\n🛑 Kitchen shutting down..."</span><span class="token" style="color: rgb(57, 58, 52);">)</span><span>
+</span>
+<span></span><span class="token" style="color: rgb(0, 0, 255);">finally</span><span class="token" style="color: rgb(57, 58, 52);">:</span><span>
+</span><span>    </span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># ─────────────────────────────────────────────────────</span><span>
+</span><span>    </span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># CLOSE the consumer cleanly</span><span>
+</span><span>    </span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># ─────────────────────────────────────────────────────</span><span>
+</span><span>    </span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># This commits final offsets and leaves the consumer group</span><span>
+</span><span>    </span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># Think: kitchen shift ends, they mark where they stopped</span><span>
+</span><span>    consumer</span><span class="token" style="color: rgb(57, 58, 52);">.</span><span>close</span><span class="token" style="color: rgb(57, 58, 52);">(</span><span class="token" style="color: rgb(57, 58, 52);">)</span><span>
+</span><span>    </span><span class="token" style="color: rgb(0, 0, 255);">print</span><span class="token" style="color: rgb(57, 58, 52);">(</span><span class="token" style="color: rgb(163, 21, 21);">"👋 Kitchen station closed. All offsets committed."</span><span class="token" style="color: rgb(57, 58, 52);">)</span></code></pre></div>
+<h3>STEP 6: RUN THE COMPLETE FLOW</h3>
+<div class="relative"><pre style="color: rgb(57, 58, 52); font-family: Consolas, &quot;Bitstream Vera Sans Mono&quot;, &quot;Courier New&quot;, Courier, monospace; direction: ltr; text-align: left; white-space: pre; word-spacing: normal; word-break: normal; font-size: 0.9em; line-height: 1.2em; tab-size: 4; hyphens: none; padding: 1em; margin: 0.5em 0px; overflow: auto; border: 1px solid rgb(221, 221, 221); background-color: white;"><code style="white-space: pre-wrap; word-break: break-all;"><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># ═══════════════════════════════════════════════════════════</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># TERMINAL 1: Run the producer (send the order)</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># ═══════════════════════════════════════════════════════════</span><span>
+</span>python producer_waiter.py
+
+<span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># EXPECTED OUTPUT:</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># 🍔 ByteBite Diner — Waiter Station Ready</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;">#</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># 📝 Order written to buffer: 1x Burger, extra cheese</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># ✅ ORDER DELIVERED!</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;">#    Topic    : food-orders</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;">#    Partition: 0</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;">#    Offset   : 0</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;">#    Value    : {"order_id": 1, "customer": "Alice", "item": "1x Burger, extra cheese", "table": 5, "timestamp": 1710000000.0}</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;">#</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># ✨ All orders have been sent to the kitchen counter!</span></code></pre></div>
+<div class="relative"><pre style="color: rgb(57, 58, 52); font-family: Consolas, &quot;Bitstream Vera Sans Mono&quot;, &quot;Courier New&quot;, Courier, monospace; direction: ltr; text-align: left; white-space: pre; word-spacing: normal; word-break: normal; font-size: 0.9em; line-height: 1.2em; tab-size: 4; hyphens: none; padding: 1em; margin: 0.5em 0px; overflow: auto; border: 1px solid rgb(221, 221, 221); background-color: white;"><code style="white-space: pre-wrap; word-break: break-all;"><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># ═══════════════════════════════════════════════════════════</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># TERMINAL 2: Run the consumer (receive the order)</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># ═══════════════════════════════════════════════════════════</span><span>
+</span>python consumer_kitchen.py
+
+<span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># EXPECTED OUTPUT:</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># 👨‍🍳 ByteBite Diner — Kitchen Station Ready</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;">#</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># 👀 Watching the food-orders counter...</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;">#</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># 🔔 NEW ORDER RECEIVED!</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;">#    Order ID : 1</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;">#    Customer : Alice</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;">#    Item     : 1x Burger, extra cheese</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;">#    Table    : 5</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;">#    ─── Kafka Metadata ───</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;">#    Topic    : food-orders</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;">#    Partition: 0</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;">#    Offset   : 0</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;">#    Timestamp: (1, 1710000000000)</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;">#</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># ⏳ No new orders... (waiting 1/10)</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># ⏳ No new orders... (waiting 2/10)</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># ...</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># 👋 Kitchen station closed. All offsets committed.</span></code></pre></div>
+<h3>STEP 7: VERIFY — Send Multiple Orders</h3>
+<div class="relative"><pre style="color: rgb(57, 58, 52); font-family: Consolas, &quot;Bitstream Vera Sans Mono&quot;, &quot;Courier New&quot;, Courier, monospace; direction: ltr; text-align: left; white-space: pre; word-spacing: normal; word-break: normal; font-size: 0.9em; line-height: 1.2em; tab-size: 4; hyphens: none; padding: 1em; margin: 0.5em 0px; overflow: auto; border: 1px solid rgb(221, 221, 221); background-color: white;"><code style="white-space: pre-wrap; word-break: break-all;"><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># ═══════════════════════════════════════════════════════════</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># file: producer_multiple_orders.py</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># Send multiple orders to see offset incrementing</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># ═══════════════════════════════════════════════════════════</span><span>
+</span>
+<span></span><span class="token" style="color: rgb(0, 0, 255);">from</span><span> confluent_kafka </span><span class="token" style="color: rgb(0, 0, 255);">import</span><span> Producer
+</span><span></span><span class="token" style="color: rgb(0, 0, 255);">import</span><span> json
+</span><span></span><span class="token" style="color: rgb(0, 0, 255);">import</span><span> time
+</span>
+<span>config </span><span class="token" style="color: rgb(57, 58, 52);">=</span><span> </span><span class="token" style="color: rgb(57, 58, 52);">{</span><span>
+</span><span>    </span><span class="token" style="color: rgb(163, 21, 21);">'bootstrap.servers'</span><span class="token" style="color: rgb(57, 58, 52);">:</span><span> </span><span class="token" style="color: rgb(163, 21, 21);">'localhost:9092'</span><span class="token" style="color: rgb(57, 58, 52);">,</span><span>
+</span><span></span><span class="token" style="color: rgb(57, 58, 52);">}</span><span>
+</span>
+<span></span><span class="token" style="color: rgb(0, 0, 255);">def</span><span> </span><span class="token" style="color: rgb(57, 58, 52);">delivery_callback</span><span class="token" style="color: rgb(57, 58, 52);">(</span><span>err</span><span class="token" style="color: rgb(57, 58, 52);">,</span><span> msg</span><span class="token" style="color: rgb(57, 58, 52);">)</span><span class="token" style="color: rgb(57, 58, 52);">:</span><span>
+</span><span>    </span><span class="token" style="color: rgb(0, 0, 255);">if</span><span> err</span><span class="token" style="color: rgb(57, 58, 52);">:</span><span>
+</span><span>        </span><span class="token" style="color: rgb(0, 0, 255);">print</span><span class="token" style="color: rgb(57, 58, 52);">(</span><span class="token string-interpolation" style="color: rgb(163, 21, 21);">f'❌ FAILED: </span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">{</span><span class="token string-interpolation interpolation">err</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">}</span><span class="token string-interpolation" style="color: rgb(163, 21, 21);">'</span><span class="token" style="color: rgb(57, 58, 52);">)</span><span>
+</span><span>    </span><span class="token" style="color: rgb(0, 0, 255);">else</span><span class="token" style="color: rgb(57, 58, 52);">:</span><span>
+</span><span>        </span><span class="token" style="color: rgb(0, 0, 255);">print</span><span class="token" style="color: rgb(57, 58, 52);">(</span><span class="token string-interpolation" style="color: rgb(163, 21, 21);">f'✅ Offset </span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">{</span><span class="token string-interpolation interpolation">msg</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">.</span><span class="token string-interpolation interpolation">offset</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">(</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">)</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">}</span><span class="token string-interpolation" style="color: rgb(163, 21, 21);"> → </span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">{</span><span class="token string-interpolation interpolation">msg</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">.</span><span class="token string-interpolation interpolation">value</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">(</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">)</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">.</span><span class="token string-interpolation interpolation">decode</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">(</span><span class="token string-interpolation interpolation" style="color: rgb(163, 21, 21);">"utf-8"</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">)</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">[</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">:</span><span class="token string-interpolation interpolation format-spec">50]</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">}</span><span class="token string-interpolation" style="color: rgb(163, 21, 21);">...'</span><span class="token" style="color: rgb(57, 58, 52);">)</span><span>
+</span>
+<span>producer </span><span class="token" style="color: rgb(57, 58, 52);">=</span><span> Producer</span><span class="token" style="color: rgb(57, 58, 52);">(</span><span>config</span><span class="token" style="color: rgb(57, 58, 52);">)</span><span>
+</span>
+<span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># ─────────────────────────────────────────────────────────</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># Multiple orders — watch offsets increment: 0, 1, 2, 3, 4</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># ─────────────────────────────────────────────────────────</span><span>
+</span><span>orders </span><span class="token" style="color: rgb(57, 58, 52);">=</span><span> </span><span class="token" style="color: rgb(57, 58, 52);">[</span><span>
+</span><span>    </span><span class="token" style="color: rgb(57, 58, 52);">{</span><span class="token" style="color: rgb(163, 21, 21);">"order_id"</span><span class="token" style="color: rgb(57, 58, 52);">:</span><span> </span><span class="token" style="color: rgb(54, 172, 170);">1</span><span class="token" style="color: rgb(57, 58, 52);">,</span><span> </span><span class="token" style="color: rgb(163, 21, 21);">"customer"</span><span class="token" style="color: rgb(57, 58, 52);">:</span><span> </span><span class="token" style="color: rgb(163, 21, 21);">"Alice"</span><span class="token" style="color: rgb(57, 58, 52);">,</span><span>   </span><span class="token" style="color: rgb(163, 21, 21);">"item"</span><span class="token" style="color: rgb(57, 58, 52);">:</span><span> </span><span class="token" style="color: rgb(163, 21, 21);">"1x Burger, extra cheese"</span><span class="token" style="color: rgb(57, 58, 52);">,</span><span>  </span><span class="token" style="color: rgb(163, 21, 21);">"table"</span><span class="token" style="color: rgb(57, 58, 52);">:</span><span> </span><span class="token" style="color: rgb(54, 172, 170);">5</span><span class="token" style="color: rgb(57, 58, 52);">}</span><span class="token" style="color: rgb(57, 58, 52);">,</span><span>
+</span><span>    </span><span class="token" style="color: rgb(57, 58, 52);">{</span><span class="token" style="color: rgb(163, 21, 21);">"order_id"</span><span class="token" style="color: rgb(57, 58, 52);">:</span><span> </span><span class="token" style="color: rgb(54, 172, 170);">2</span><span class="token" style="color: rgb(57, 58, 52);">,</span><span> </span><span class="token" style="color: rgb(163, 21, 21);">"customer"</span><span class="token" style="color: rgb(57, 58, 52);">:</span><span> </span><span class="token" style="color: rgb(163, 21, 21);">"Bob"</span><span class="token" style="color: rgb(57, 58, 52);">,</span><span>     </span><span class="token" style="color: rgb(163, 21, 21);">"item"</span><span class="token" style="color: rgb(57, 58, 52);">:</span><span> </span><span class="token" style="color: rgb(163, 21, 21);">"2x Pizza Margherita"</span><span class="token" style="color: rgb(57, 58, 52);">,</span><span>      </span><span class="token" style="color: rgb(163, 21, 21);">"table"</span><span class="token" style="color: rgb(57, 58, 52);">:</span><span> </span><span class="token" style="color: rgb(54, 172, 170);">3</span><span class="token" style="color: rgb(57, 58, 52);">}</span><span class="token" style="color: rgb(57, 58, 52);">,</span><span>
+</span><span>    </span><span class="token" style="color: rgb(57, 58, 52);">{</span><span class="token" style="color: rgb(163, 21, 21);">"order_id"</span><span class="token" style="color: rgb(57, 58, 52);">:</span><span> </span><span class="token" style="color: rgb(54, 172, 170);">3</span><span class="token" style="color: rgb(57, 58, 52);">,</span><span> </span><span class="token" style="color: rgb(163, 21, 21);">"customer"</span><span class="token" style="color: rgb(57, 58, 52);">:</span><span> </span><span class="token" style="color: rgb(163, 21, 21);">"Charlie"</span><span class="token" style="color: rgb(57, 58, 52);">,</span><span> </span><span class="token" style="color: rgb(163, 21, 21);">"item"</span><span class="token" style="color: rgb(57, 58, 52);">:</span><span> </span><span class="token" style="color: rgb(163, 21, 21);">"1x Caesar Salad"</span><span class="token" style="color: rgb(57, 58, 52);">,</span><span>          </span><span class="token" style="color: rgb(163, 21, 21);">"table"</span><span class="token" style="color: rgb(57, 58, 52);">:</span><span> </span><span class="token" style="color: rgb(54, 172, 170);">7</span><span class="token" style="color: rgb(57, 58, 52);">}</span><span class="token" style="color: rgb(57, 58, 52);">,</span><span>
+</span><span>    </span><span class="token" style="color: rgb(57, 58, 52);">{</span><span class="token" style="color: rgb(163, 21, 21);">"order_id"</span><span class="token" style="color: rgb(57, 58, 52);">:</span><span> </span><span class="token" style="color: rgb(54, 172, 170);">4</span><span class="token" style="color: rgb(57, 58, 52);">,</span><span> </span><span class="token" style="color: rgb(163, 21, 21);">"customer"</span><span class="token" style="color: rgb(57, 58, 52);">:</span><span> </span><span class="token" style="color: rgb(163, 21, 21);">"Diana"</span><span class="token" style="color: rgb(57, 58, 52);">,</span><span>   </span><span class="token" style="color: rgb(163, 21, 21);">"item"</span><span class="token" style="color: rgb(57, 58, 52);">:</span><span> </span><span class="token" style="color: rgb(163, 21, 21);">"3x Fish &amp; Chips"</span><span class="token" style="color: rgb(57, 58, 52);">,</span><span>          </span><span class="token" style="color: rgb(163, 21, 21);">"table"</span><span class="token" style="color: rgb(57, 58, 52);">:</span><span> </span><span class="token" style="color: rgb(54, 172, 170);">1</span><span class="token" style="color: rgb(57, 58, 52);">}</span><span class="token" style="color: rgb(57, 58, 52);">,</span><span>
+</span><span>    </span><span class="token" style="color: rgb(57, 58, 52);">{</span><span class="token" style="color: rgb(163, 21, 21);">"order_id"</span><span class="token" style="color: rgb(57, 58, 52);">:</span><span> </span><span class="token" style="color: rgb(54, 172, 170);">5</span><span class="token" style="color: rgb(57, 58, 52);">,</span><span> </span><span class="token" style="color: rgb(163, 21, 21);">"customer"</span><span class="token" style="color: rgb(57, 58, 52);">:</span><span> </span><span class="token" style="color: rgb(163, 21, 21);">"Eve"</span><span class="token" style="color: rgb(57, 58, 52);">,</span><span>     </span><span class="token" style="color: rgb(163, 21, 21);">"item"</span><span class="token" style="color: rgb(57, 58, 52);">:</span><span> </span><span class="token" style="color: rgb(163, 21, 21);">"1x Veggie Wrap, no onion"</span><span class="token" style="color: rgb(57, 58, 52);">,</span><span> </span><span class="token" style="color: rgb(163, 21, 21);">"table"</span><span class="token" style="color: rgb(57, 58, 52);">:</span><span> </span><span class="token" style="color: rgb(54, 172, 170);">12</span><span class="token" style="color: rgb(57, 58, 52);">}</span><span class="token" style="color: rgb(57, 58, 52);">,</span><span>
+</span><span></span><span class="token" style="color: rgb(57, 58, 52);">]</span><span>
+</span>
+<span></span><span class="token" style="color: rgb(0, 0, 255);">print</span><span class="token" style="color: rgb(57, 58, 52);">(</span><span class="token" style="color: rgb(163, 21, 21);">"🍔 Sending 5 orders to food-orders topic...\n"</span><span class="token" style="color: rgb(57, 58, 52);">)</span><span>
+</span>
+<span></span><span class="token" style="color: rgb(0, 0, 255);">for</span><span> order </span><span class="token" style="color: rgb(0, 0, 255);">in</span><span> orders</span><span class="token" style="color: rgb(57, 58, 52);">:</span><span>
+</span><span>    order</span><span class="token" style="color: rgb(57, 58, 52);">[</span><span class="token" style="color: rgb(163, 21, 21);">'timestamp'</span><span class="token" style="color: rgb(57, 58, 52);">]</span><span> </span><span class="token" style="color: rgb(57, 58, 52);">=</span><span> time</span><span class="token" style="color: rgb(57, 58, 52);">.</span><span>time</span><span class="token" style="color: rgb(57, 58, 52);">(</span><span class="token" style="color: rgb(57, 58, 52);">)</span><span>
+</span><span>    producer</span><span class="token" style="color: rgb(57, 58, 52);">.</span><span>produce</span><span class="token" style="color: rgb(57, 58, 52);">(</span><span>
+</span><span>        topic</span><span class="token" style="color: rgb(57, 58, 52);">=</span><span class="token" style="color: rgb(163, 21, 21);">'food-orders'</span><span class="token" style="color: rgb(57, 58, 52);">,</span><span>
+</span><span>        value</span><span class="token" style="color: rgb(57, 58, 52);">=</span><span>json</span><span class="token" style="color: rgb(57, 58, 52);">.</span><span>dumps</span><span class="token" style="color: rgb(57, 58, 52);">(</span><span>order</span><span class="token" style="color: rgb(57, 58, 52);">)</span><span class="token" style="color: rgb(57, 58, 52);">.</span><span>encode</span><span class="token" style="color: rgb(57, 58, 52);">(</span><span class="token" style="color: rgb(163, 21, 21);">'utf-8'</span><span class="token" style="color: rgb(57, 58, 52);">)</span><span class="token" style="color: rgb(57, 58, 52);">,</span><span>
+</span><span>        callback</span><span class="token" style="color: rgb(57, 58, 52);">=</span><span>delivery_callback
+</span><span>    </span><span class="token" style="color: rgb(57, 58, 52);">)</span><span>
+</span><span>    </span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># producer.poll(0) triggers callback processing</span><span>
+</span><span>    </span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># without this, callbacks queue up until flush()</span><span>
+</span><span>    producer</span><span class="token" style="color: rgb(57, 58, 52);">.</span><span>poll</span><span class="token" style="color: rgb(57, 58, 52);">(</span><span class="token" style="color: rgb(54, 172, 170);">0</span><span class="token" style="color: rgb(57, 58, 52);">)</span><span>
+</span><span>    time</span><span class="token" style="color: rgb(57, 58, 52);">.</span><span>sleep</span><span class="token" style="color: rgb(57, 58, 52);">(</span><span class="token" style="color: rgb(54, 172, 170);">0.5</span><span class="token" style="color: rgb(57, 58, 52);">)</span><span>       </span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># small delay to simulate real-time ordering</span><span>
+</span>
+<span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># Send all remaining buffered messages</span><span>
+</span><span>producer</span><span class="token" style="color: rgb(57, 58, 52);">.</span><span>flush</span><span class="token" style="color: rgb(57, 58, 52);">(</span><span class="token" style="color: rgb(57, 58, 52);">)</span><span>
+</span>
+<span></span><span class="token" style="color: rgb(0, 0, 255);">print</span><span class="token" style="color: rgb(57, 58, 52);">(</span><span class="token" style="color: rgb(163, 21, 21);">"\n✨ All 5 orders sent!"</span><span class="token" style="color: rgb(57, 58, 52);">)</span><span>
+</span>
+<span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># EXPECTED OUTPUT:</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># 🍔 Sending 5 orders to food-orders topic...</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;">#</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># ✅ Offset 1 → {"order_id": 1, "customer": "Alice", "item": "1x Bu...</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># ✅ Offset 2 → {"order_id": 2, "customer": "Bob", "item": "2x Pizza...</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># ✅ Offset 3 → {"order_id": 3, "customer": "Charlie", "item": "1x C...</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># ✅ Offset 4 → {"order_id": 4, "customer": "Diana", "item": "3x Fis...</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># ✅ Offset 5 → {"order_id": 5, "customer": "Eve", "item": "1x Veggi...</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;">#</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># ✨ All 5 orders sent!</span></code></pre></div>
+<h3>STEP 8: VERIFICATION SCRIPT — Confirm Everything Works</h3>
+<div class="relative"><pre style="color: rgb(57, 58, 52); font-family: Consolas, &quot;Bitstream Vera Sans Mono&quot;, &quot;Courier New&quot;, Courier, monospace; direction: ltr; text-align: left; white-space: pre; word-spacing: normal; word-break: normal; font-size: 0.9em; line-height: 1.2em; tab-size: 4; hyphens: none; padding: 1em; margin: 0.5em 0px; overflow: auto; border: 1px solid rgb(221, 221, 221); background-color: white;"><code style="white-space: pre-wrap; word-break: break-all;"><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># ═══════════════════════════════════════════════════════════</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># file: verify_setup.py</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># Confirms broker is reachable and topic exists</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># ═══════════════════════════════════════════════════════════</span><span>
+</span>
+<span></span><span class="token" style="color: rgb(0, 0, 255);">from</span><span> confluent_kafka</span><span class="token" style="color: rgb(57, 58, 52);">.</span><span>admin </span><span class="token" style="color: rgb(0, 0, 255);">import</span><span> AdminClient</span><span class="token" style="color: rgb(57, 58, 52);">,</span><span> NewTopic
+</span>
+<span>admin_config </span><span class="token" style="color: rgb(57, 58, 52);">=</span><span> </span><span class="token" style="color: rgb(57, 58, 52);">{</span><span>
+</span><span>    </span><span class="token" style="color: rgb(163, 21, 21);">'bootstrap.servers'</span><span class="token" style="color: rgb(57, 58, 52);">:</span><span> </span><span class="token" style="color: rgb(163, 21, 21);">'localhost:9092'</span><span class="token" style="color: rgb(57, 58, 52);">,</span><span>
+</span><span></span><span class="token" style="color: rgb(57, 58, 52);">}</span><span>
+</span>
+<span>admin </span><span class="token" style="color: rgb(57, 58, 52);">=</span><span> AdminClient</span><span class="token" style="color: rgb(57, 58, 52);">(</span><span>admin_config</span><span class="token" style="color: rgb(57, 58, 52);">)</span><span>
+</span>
+<span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># ─────────────────────────────────────────────────────────</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># Check 1: Broker connectivity</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># ─────────────────────────────────────────────────────────</span><span>
+</span><span>cluster_metadata </span><span class="token" style="color: rgb(57, 58, 52);">=</span><span> admin</span><span class="token" style="color: rgb(57, 58, 52);">.</span><span>list_topics</span><span class="token" style="color: rgb(57, 58, 52);">(</span><span>timeout</span><span class="token" style="color: rgb(57, 58, 52);">=</span><span class="token" style="color: rgb(54, 172, 170);">5</span><span class="token" style="color: rgb(57, 58, 52);">)</span><span>
+</span>
+<span></span><span class="token" style="color: rgb(0, 0, 255);">print</span><span class="token" style="color: rgb(57, 58, 52);">(</span><span class="token" style="color: rgb(163, 21, 21);">"═══ KAFKA CLUSTER STATUS ═══\n"</span><span class="token" style="color: rgb(57, 58, 52);">)</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 0, 255);">print</span><span class="token" style="color: rgb(57, 58, 52);">(</span><span class="token string-interpolation" style="color: rgb(163, 21, 21);">f"Broker count: </span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">{</span><span class="token string-interpolation interpolation builtin">len</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">(</span><span class="token string-interpolation interpolation">cluster_metadata</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">.</span><span class="token string-interpolation interpolation">brokers</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">)</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">}</span><span class="token string-interpolation" style="color: rgb(163, 21, 21);">"</span><span class="token" style="color: rgb(57, 58, 52);">)</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 0, 255);">for</span><span> broker_id</span><span class="token" style="color: rgb(57, 58, 52);">,</span><span> broker </span><span class="token" style="color: rgb(0, 0, 255);">in</span><span> cluster_metadata</span><span class="token" style="color: rgb(57, 58, 52);">.</span><span>brokers</span><span class="token" style="color: rgb(57, 58, 52);">.</span><span>items</span><span class="token" style="color: rgb(57, 58, 52);">(</span><span class="token" style="color: rgb(57, 58, 52);">)</span><span class="token" style="color: rgb(57, 58, 52);">:</span><span>
+</span><span>    </span><span class="token" style="color: rgb(0, 0, 255);">print</span><span class="token" style="color: rgb(57, 58, 52);">(</span><span class="token string-interpolation" style="color: rgb(163, 21, 21);">f"  Broker </span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">{</span><span class="token string-interpolation interpolation">broker_id</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">}</span><span class="token string-interpolation" style="color: rgb(163, 21, 21);">: </span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">{</span><span class="token string-interpolation interpolation">broker</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">}</span><span class="token string-interpolation" style="color: rgb(163, 21, 21);">"</span><span class="token" style="color: rgb(57, 58, 52);">)</span><span>
+</span>
+<span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># ─────────────────────────────────────────────────────────</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># Check 2: Topic existence</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># ─────────────────────────────────────────────────────────</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 0, 255);">print</span><span class="token" style="color: rgb(57, 58, 52);">(</span><span class="token string-interpolation" style="color: rgb(163, 21, 21);">f"\nTopic count: </span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">{</span><span class="token string-interpolation interpolation builtin">len</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">(</span><span class="token string-interpolation interpolation">cluster_metadata</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">.</span><span class="token string-interpolation interpolation">topics</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">)</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">}</span><span class="token string-interpolation" style="color: rgb(163, 21, 21);">"</span><span class="token" style="color: rgb(57, 58, 52);">)</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 0, 255);">for</span><span> topic_name</span><span class="token" style="color: rgb(57, 58, 52);">,</span><span> topic_metadata </span><span class="token" style="color: rgb(0, 0, 255);">in</span><span> cluster_metadata</span><span class="token" style="color: rgb(57, 58, 52);">.</span><span>topics</span><span class="token" style="color: rgb(57, 58, 52);">.</span><span>items</span><span class="token" style="color: rgb(57, 58, 52);">(</span><span class="token" style="color: rgb(57, 58, 52);">)</span><span class="token" style="color: rgb(57, 58, 52);">:</span><span>
+</span><span>    </span><span class="token" style="color: rgb(0, 0, 255);">if</span><span> </span><span class="token" style="color: rgb(0, 0, 255);">not</span><span> topic_name</span><span class="token" style="color: rgb(57, 58, 52);">.</span><span>startswith</span><span class="token" style="color: rgb(57, 58, 52);">(</span><span class="token" style="color: rgb(163, 21, 21);">'_'</span><span class="token" style="color: rgb(57, 58, 52);">)</span><span class="token" style="color: rgb(57, 58, 52);">:</span><span>    </span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># Skip internal topics</span><span>
+</span><span>        </span><span class="token" style="color: rgb(0, 0, 255);">print</span><span class="token" style="color: rgb(57, 58, 52);">(</span><span class="token string-interpolation" style="color: rgb(163, 21, 21);">f"  📋 </span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">{</span><span class="token string-interpolation interpolation">topic_name</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">}</span><span class="token string-interpolation" style="color: rgb(163, 21, 21);">"</span><span class="token" style="color: rgb(57, 58, 52);">)</span><span>
+</span><span>        </span><span class="token" style="color: rgb(0, 0, 255);">print</span><span class="token" style="color: rgb(57, 58, 52);">(</span><span class="token string-interpolation" style="color: rgb(163, 21, 21);">f"     Partitions: </span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">{</span><span class="token string-interpolation interpolation builtin">len</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">(</span><span class="token string-interpolation interpolation">topic_metadata</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">.</span><span class="token string-interpolation interpolation">partitions</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">)</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">}</span><span class="token string-interpolation" style="color: rgb(163, 21, 21);">"</span><span class="token" style="color: rgb(57, 58, 52);">)</span><span>
+</span><span>        </span><span class="token" style="color: rgb(0, 0, 255);">for</span><span> part_id</span><span class="token" style="color: rgb(57, 58, 52);">,</span><span> part_meta </span><span class="token" style="color: rgb(0, 0, 255);">in</span><span> topic_metadata</span><span class="token" style="color: rgb(57, 58, 52);">.</span><span>partitions</span><span class="token" style="color: rgb(57, 58, 52);">.</span><span>items</span><span class="token" style="color: rgb(57, 58, 52);">(</span><span class="token" style="color: rgb(57, 58, 52);">)</span><span class="token" style="color: rgb(57, 58, 52);">:</span><span>
+</span><span>            </span><span class="token" style="color: rgb(0, 0, 255);">print</span><span class="token" style="color: rgb(57, 58, 52);">(</span><span class="token string-interpolation" style="color: rgb(163, 21, 21);">f"     Partition </span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">{</span><span class="token string-interpolation interpolation">part_id</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">}</span><span class="token string-interpolation" style="color: rgb(163, 21, 21);">: Leader=Broker </span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">{</span><span class="token string-interpolation interpolation">part_meta</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">.</span><span class="token string-interpolation interpolation">leader</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">}</span><span class="token string-interpolation" style="color: rgb(163, 21, 21);">"</span><span class="token" style="color: rgb(57, 58, 52);">)</span><span>
+</span>
+<span></span><span class="token" style="color: rgb(0, 0, 255);">print</span><span class="token" style="color: rgb(57, 58, 52);">(</span><span class="token" style="color: rgb(163, 21, 21);">"\n✅ Kafka is running and food-orders topic exists!"</span><span class="token" style="color: rgb(57, 58, 52);">)</span></code></pre></div>
+<h3>STEP 9: CLEANUP</h3>
+<div class="relative"><pre style="color: rgb(57, 58, 52); font-family: Consolas, &quot;Bitstream Vera Sans Mono&quot;, &quot;Courier New&quot;, Courier, monospace; direction: ltr; text-align: left; white-space: pre; word-spacing: normal; word-break: normal; font-size: 0.9em; line-height: 1.2em; tab-size: 4; hyphens: none; padding: 1em; margin: 0.5em 0px; overflow: auto; border: 1px solid rgb(221, 221, 221); background-color: white;"><code style="white-space: pre-wrap; word-break: break-all;"><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># ═══════════════════════════════════════════════════════════</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># When you are done — clean shutdown</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># ═══════════════════════════════════════════════════════════</span><span>
+</span>
+<span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># If using Docker:</span><span>
+</span><span></span><span class="token" style="color: rgb(57, 58, 52);">docker-compose</span><span> down
+</span>
+<span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># If using manual install:</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># Stop Kafka FIRST, then ZooKeeper</span><span>
+</span>bin/kafka-server-stop.sh
+bin/zookeeper-server-stop.sh</code></pre></div>
+<hr>
+<h2>🔑 KEY TAKEAWAY</h2>
+<div class="relative"><pre style="color: rgb(57, 58, 52); font-family: Consolas, &quot;Bitstream Vera Sans Mono&quot;, &quot;Courier New&quot;, Courier, monospace; direction: ltr; text-align: left; white-space: pre; word-spacing: normal; word-break: normal; font-size: 0.9em; line-height: 1.2em; tab-size: 4; hyphens: none; padding: 1em; margin: 0.5em 0px; overflow: auto; border: 1px solid rgb(221, 221, 221); background-color: white;"><code style="white-space: pre-wrap; word-break: break-all;"><span>WHAT YOU LEARNED IN PROJECT 1:
+</span>═══════════════════════════════
+
+✅ Kafka is a DISTRIBUTED APPEND-ONLY LOG system
+✅ A BROKER is the server that stores and serves messages
+✅ A TOPIC is a named channel where messages are written
+✅ A PRODUCER writes messages to a topic
+✅ A CONSUMER reads messages from a topic (pull-based)
+✅ Every message gets an OFFSET — a sequential, immutable number
+✅ Messages are NOT deleted after reading (unlike traditional queues)
+✅ Producer and Consumer are FULLY DECOUPLED — they never talk to each other
+
+THE CORE MENTAL MODEL:
+  Producer → Topic (append-only log on broker) → Consumer
+  
+  This NEVER changes — every single Kafka pattern
+  is a variation of this flow.
+
+
+CONNECTION TO NEXT PROJECT:
+═══════════════════════════
+In this project, we sent a SINGLE order and stopped.
+
+But in reality:
+→ Orders keep coming CONTINUOUSLY
+→ The waiter does not stop after one order
+→ The kitchen does not shut down after one order
+
+PROJECT 2 will solve: "How do we produce a CONTINUOUS stream
+of messages and consume them in real-time?"
+
+We will also discover WHY message ordering matters
+and WHY the append-only log is the secret weapon.</code></pre></div>
+<hr>
+<h2>🌉 BRIDGE TO NEXT PROJECT</h2>
+<div class="relative"><pre style="color: rgb(57, 58, 52); font-family: Consolas, &quot;Bitstream Vera Sans Mono&quot;, &quot;Courier New&quot;, Courier, monospace; direction: ltr; text-align: left; white-space: pre; word-spacing: normal; word-break: normal; font-size: 0.9em; line-height: 1.2em; tab-size: 4; hyphens: none; padding: 1em; margin: 0.5em 0px; overflow: auto; border: 1px solid rgb(221, 221, 221); background-color: white;"><code style="white-space: pre-wrap; word-break: break-all;"><span>PROJECT 2: "The News Ticker — Producing a Continuous Stream"
+</span>
+WHAT CHANGES:
+→ Project 1: Single message, run once, done
+→ Project 2: Infinite stream of messages, running continuously
+
+NEW CONCEPTS COMING:
+→ Continuous producing with timing control
+→ Observing message ORDERING in the log
+→ Understanding the topic as an append-only log visually
+→ Real-time consumption pattern
+
+PREREQUISITE FROM PROJECT 1:
+→ Kafka installed and running ✅
+→ Topic creation understood ✅
+→ Producer/Consumer basics understood ✅
+→ Offset concept introduced ✅</code></pre></div>
+<hr>
+</div>
+</div>
+
+<!-- ========== data-index="5" ========== -->
+
+        </div>
+
+        <div class="nav-bar">
+            <a href="project-0.html" class="nav-button prev">← Previous Project</a>
+            <div class="page-info">
+                <a href="index.html" class="nav-button home">📚 Table of Contents</a><br>
+                <span style="margin-top:8px;display:block">Project 1 of 45</span>
+            </div>
+            <a href="project-2.html" class="nav-button next">Next Project →</a>
+        </div>
+    </div>
+
+    
+    <div id="progress-track"><div id="progress-fill"></div></div>
+    <div id="progress-pct">0%</div>
+
+
+<script src="script.js"></script>
+
+</body>
+</html>

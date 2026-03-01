@@ -1,0 +1,954 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/png" href="images/favicon.png">
+    <title>Project 2: THE NEWS TICKER — PRODUCING A CONTINUOUS STREAM — Apache Kafka Masterclass</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <div class="content">
+            <div class="chat-message" data-index="5">
+<div class="px-2"><h1>PROJECT 2: THE NEWS TICKER — PRODUCING A CONTINUOUS STREAM</h1>
+<hr>
+<h2>🎯 HYPOTHETICAL PROBLEM</h2>
+<div class="relative"><pre style="color: rgb(57, 58, 52); font-family: Consolas, &quot;Bitstream Vera Sans Mono&quot;, &quot;Courier New&quot;, Courier, monospace; direction: ltr; text-align: left; white-space: pre; word-spacing: normal; word-break: normal; font-size: 0.9em; line-height: 1.2em; tab-size: 4; hyphens: none; padding: 1em; margin: 0.5em 0px; overflow: auto; border: 1px solid rgb(221, 221, 221); background-color: white;"><code style="white-space: pre-wrap; word-break: break-all;"><span>You work at "ByteWire News Agency"
+</span>
+→ Breaking news events happen CONTINUOUSLY throughout the day
+→ A reporter files a story every few seconds
+→ A news ticker display on a TV screen must show headlines IN ORDER
+→ Multiple TV screens across the building show the SAME ticker
+
+HERE IS THE PROBLEM:
+→ In Project 1, the waiter sent ONE order and stopped
+→ But news NEVER stops — it flows continuously
+→ If a headline arrives out of order, the ticker looks broken
+  Example:
+    CORRECT:  "Election Results In" → "Markets React" → "New Policy Announced"
+    BROKEN:   "New Policy Announced" → "Election Results In" → "Markets React"
+
+→ If the ticker screen goes offline for 5 minutes and comes back,
+  it must show ALL headlines it missed — in the CORRECT order
+→ If a SECOND ticker screen is added, it must independently
+  start from the beginning and catch up
+
+YOU NEED:
+→ A reporter that CONTINUOUSLY produces headlines
+→ A ticker that CONTINUOUSLY consumes headlines IN ORDER
+→ The ability to REPLAY all headlines from any point
+→ Proof that Kafka preserves ordering</code></pre></div>
+<hr>
+<h2>🔍 HOW TO APPROACH IT</h2>
+<div class="relative"><pre style="color: rgb(57, 58, 52); font-family: Consolas, &quot;Bitstream Vera Sans Mono&quot;, &quot;Courier New&quot;, Courier, monospace; direction: ltr; text-align: left; white-space: pre; word-spacing: normal; word-break: normal; font-size: 0.9em; line-height: 1.2em; tab-size: 4; hyphens: none; padding: 1em; margin: 0.5em 0px; overflow: auto; border: 1px solid rgb(221, 221, 221); background-color: white;"><code style="white-space: pre-wrap; word-break: break-all;"><span>WHAT WE ALREADY KNOW (from Project 1):
+</span>→ Producer sends messages to a topic ✅
+→ Consumer reads messages from a topic ✅
+→ Messages get sequential offsets ✅
+→ Messages persist on disk ✅
+
+WHAT IS NEW HERE:
+→ The producer runs in an INFINITE LOOP (continuous stream)
+→ The consumer runs in an INFINITE LOOP (continuous polling)
+→ We need to PROVE ordering is maintained
+→ We need to DEMONSTRATE replay capability
+→ We need to understand WHY ordering works
+
+APPROACH:
+Step 1: Build a producer that generates headlines every 2 seconds
+Step 2: Embed a SEQUENCE NUMBER in each message
+Step 3: Build a consumer that validates ordering by checking sequence
+Step 4: Stop the consumer, let messages pile up, restart it
+Step 5: Observe that ALL missed messages arrive IN ORDER
+Step 6: Start a SECOND consumer with a different group.id
+Step 7: Observe it reads ALL messages independently from offset 0</code></pre></div>
+<hr>
+<h2>🛠️ HOW CAN WE SOLVE IT</h2>
+<div class="relative"><pre style="color: rgb(57, 58, 52); font-family: Consolas, &quot;Bitstream Vera Sans Mono&quot;, &quot;Courier New&quot;, Courier, monospace; direction: ltr; text-align: left; white-space: pre; word-spacing: normal; word-break: normal; font-size: 0.9em; line-height: 1.2em; tab-size: 4; hyphens: none; padding: 1em; margin: 0.5em 0px; overflow: auto; border: 1px solid rgb(221, 221, 221); background-color: white;"><code style="white-space: pre-wrap; word-break: break-all;"><span>SOLUTION DESIGN:
+</span>
+  Reporter (Producer)                    Kafka Broker
+  ┌──────────────────┐                 ┌────────────────────────────┐
+  │ while True:      │                 │ Topic: breaking-news       │
+  │   headline = ... │  ──produce──→   │                            │
+  │   sleep(2 sec)   │                 │ [0] [1] [2] [3] [4] [5]...│
+  │                  │                 │  ↑                     ↑   │
+  └──────────────────┘                 │  first             latest  │
+                                       └─────────────┬──────────────┘
+                                                     │
+                                          ┌──────────┴──────────┐
+                                          │                     │
+                                    ┌─────▼─────┐        ┌─────▼─────┐
+                                    │ Ticker #1  │        │ Ticker #2  │
+                                    │ group:     │        │ group:     │
+                                    │ "ticker-a" │        │ "ticker-b" │
+                                    │ offset: 5  │        │ offset: 2  │
+                                    └────────────┘        └────────────┘
+                                    (caught up)           (catching up)
+
+KEY INSIGHT:
+→ Each consumer group has its OWN offset pointer
+→ Ticker #1 might be at offset 5 (fully caught up)
+→ Ticker #2 might be at offset 2 (still catching up)
+→ They do NOT interfere with each other
+→ The topic log is SHARED but offset tracking is INDEPENDENT</code></pre></div>
+<hr>
+<h2>✅ WHAT COULD BE DONE</h2>
+<div class="relative"><pre style="color: rgb(57, 58, 52); font-family: Consolas, &quot;Bitstream Vera Sans Mono&quot;, &quot;Courier New&quot;, Courier, monospace; direction: ltr; text-align: left; white-space: pre; word-spacing: normal; word-break: normal; font-size: 0.9em; line-height: 1.2em; tab-size: 4; hyphens: none; padding: 1em; margin: 0.5em 0px; overflow: auto; border: 1px solid rgb(221, 221, 221); background-color: white;"><code style="white-space: pre-wrap; word-break: break-all;"><span>Option A: Producer sends all headlines in one batch
+</span>          → PROBLEM: Not realistic — news arrives continuously
+          → PROBLEM: No way to see real-time streaming behavior
+
+Option B: Producer sends one message and consumer polls once
+          → THIS IS WHAT PROJECT 1 DID — we need to go beyond
+
+Option C: Producer loops continuously, consumer loops continuously ✅
+          → REALISTIC: Mirrors real-world streaming systems
+          → DEMONSTRATES: Ordering, replay, independent consumers
+          → PROVES: Kafka's append-only log is the foundation of everything</code></pre></div>
+<hr>
+<h2>✅ WHAT SHOULD DO</h2>
+<div class="relative"><pre style="color: rgb(57, 58, 52); font-family: Consolas, &quot;Bitstream Vera Sans Mono&quot;, &quot;Courier New&quot;, Courier, monospace; direction: ltr; text-align: left; white-space: pre; word-spacing: normal; word-break: normal; font-size: 0.9em; line-height: 1.2em; tab-size: 4; hyphens: none; padding: 1em; margin: 0.5em 0px; overflow: auto; border: 1px solid rgb(221, 221, 221); background-color: white;"><code style="white-space: pre-wrap; word-break: break-all;"><span>1. ALWAYS include a logical sequence number or timestamp IN your message
+</span>   → Kafka guarantees offset ordering
+   → But YOUR application should also validate ordering independently
+   → This is your SAFETY NET for detecting anomalies
+
+2. ALWAYS use producer.poll(0) inside a producing loop
+   → This triggers delivery callbacks without blocking
+   → Without this, callbacks queue up and memory grows
+   → Project 1 used flush() at the end — in a loop, poll(0) is better
+
+3. ALWAYS use try/finally with consumer.close()
+   → If the consumer crashes without close(), offsets may not commit
+   → The finally block ensures clean shutdown
+
+4. ALWAYS design messages to be SELF-DESCRIBING
+   → Include enough metadata to understand the message WITHOUT context
+   → A headline message should carry: sequence, timestamp, category, text
+
+5. ALWAYS test replay by restarting the consumer with a NEW group.id
+   → This proves messages are still on disk
+   → This proves the append-only log works as expected</code></pre></div>
+<hr>
+<h2>❌ WHAT SHOULD NOT DO</h2>
+<div class="relative"><pre style="color: rgb(57, 58, 52); font-family: Consolas, &quot;Bitstream Vera Sans Mono&quot;, &quot;Courier New&quot;, Courier, monospace; direction: ltr; text-align: left; white-space: pre; word-spacing: normal; word-break: normal; font-size: 0.9em; line-height: 1.2em; tab-size: 4; hyphens: none; padding: 1em; margin: 0.5em 0px; overflow: auto; border: 1px solid rgb(221, 221, 221); background-color: white;"><code style="white-space: pre-wrap; word-break: break-all;"><span>1. DO NOT use time.sleep() inside the consumer poll loop
+</span>   → The poll(timeout) already has a built-in wait
+   → Adding sleep ON TOP of poll creates unnecessary latency
+   → poll(1.0) = "wait up to 1 second for a message" — that IS your sleep
+
+2. DO NOT assume ordering across MULTIPLE partitions
+   → In this project we use 1 partition → ordering guaranteed
+   → In Project 3, we will add partitions → ordering guarantee changes
+   → For now: 1 partition = total order guaranteed
+
+3. DO NOT flush() inside a tight producing loop
+   → flush() BLOCKS until all messages are sent
+   → In a loop, this kills throughput
+   → Use poll(0) instead — non-blocking callback processing
+
+4. DO NOT ignore the delivery callback in continuous producing
+   → If the broker is down, messages silently fail without callbacks
+   → The callback is your ONLY way to know if delivery succeeded
+
+5. DO NOT create a new Producer/Consumer instance for each message
+   → Create ONCE, reuse forever
+   → Instance creation involves TCP handshake, metadata fetch — expensive</code></pre></div>
+<hr>
+<h2>🔀 WHEN TO USE WHAT</h2>
+<div class="relative"><pre style="color: rgb(57, 58, 52); font-family: Consolas, &quot;Bitstream Vera Sans Mono&quot;, &quot;Courier New&quot;, Courier, monospace; direction: ltr; text-align: left; white-space: pre; word-spacing: normal; word-break: normal; font-size: 0.9em; line-height: 1.2em; tab-size: 4; hyphens: none; padding: 1em; margin: 0.5em 0px; overflow: auto; border: 1px solid rgb(221, 221, 221); background-color: white;"><code style="white-space: pre-wrap; word-break: break-all;"><span>┌────────────────────────────────────┬────────────────────────────────────────┐
+</span>│ USE CONTINUOUS PRODUCING WHEN      │ USE BATCH/ONE-SHOT PRODUCING WHEN      │
+├────────────────────────────────────┼────────────────────────────────────────┤
+│ Data arrives as an ongoing stream  │ Data arrives as a finite batch         │
+│ (sensor data, logs, events, news)  │ (daily file import, one-time migration)│
+├────────────────────────────────────┼────────────────────────────────────────┤
+│ You need real-time processing      │ Latency does not matter                │
+│ downstream                         │ (nightly ETL job)                      │
+├────────────────────────────────────┼────────────────────────────────────────┤
+│ Producer runs as a long-lived      │ Producer runs as a short-lived         │
+│ service/daemon                     │ script/cron job                        │
+└────────────────────────────────────┴────────────────────────────────────────┘
+
+┌────────────────────────────────────┬────────────────────────────────────────┐
+│ USE poll(0) IN PRODUCER LOOP       │ USE flush() IN PRODUCER                │
+├────────────────────────────────────┼────────────────────────────────────────┤
+│ Inside a continuous loop           │ At the END of a batch/script           │
+│ (non-blocking callback trigger)    │ (blocking — ensure everything sent)    │
+├────────────────────────────────────┼────────────────────────────────────────┤
+│ When throughput matters            │ When completeness matters              │
+│ (don't want to block the loop)    │ (must guarantee all sent before exit)  │
+└────────────────────────────────────┴────────────────────────────────────────┘</code></pre></div>
+<hr>
+<h2>🚫 WHEN NOT TO USE</h2>
+<div class="relative"><pre style="color: rgb(57, 58, 52); font-family: Consolas, &quot;Bitstream Vera Sans Mono&quot;, &quot;Courier New&quot;, Courier, monospace; direction: ltr; text-align: left; white-space: pre; word-spacing: normal; word-break: normal; font-size: 0.9em; line-height: 1.2em; tab-size: 4; hyphens: none; padding: 1em; margin: 0.5em 0px; overflow: auto; border: 1px solid rgb(221, 221, 221); background-color: white;"><code style="white-space: pre-wrap; word-break: break-all;"><span>→ DO NOT use continuous producing if your data source is finite
+</span>  (e.g., reading a CSV file — use batch produce + flush instead)
+
+→ DO NOT use continuous consuming without a shutdown signal
+  (always handle KeyboardInterrupt or SIGTERM for clean exit)
+
+→ DO NOT use a single partition if ordering across
+  INDEPENDENT categories is needed
+  (e.g., sports news vs politics news can be parallel — Project 3)</code></pre></div>
+<hr>
+<h2>⚙️ HOW IT ONLY WORKS — INTERNAL MECHANICS</h2>
+<div class="relative"><pre style="color: rgb(57, 58, 52); font-family: Consolas, &quot;Bitstream Vera Sans Mono&quot;, &quot;Courier New&quot;, Courier, monospace; direction: ltr; text-align: left; white-space: pre; word-spacing: normal; word-break: normal; font-size: 0.9em; line-height: 1.2em; tab-size: 4; hyphens: none; padding: 1em; margin: 0.5em 0px; overflow: auto; border: 1px solid rgb(221, 221, 221); background-color: white;"><code style="white-space: pre-wrap; word-break: break-all;"><span>═══════════════════════════════════════════════════════════════
+</span>WHY DOES KAFKA GUARANTEE ORDERING?
+═══════════════════════════════════════════════════════════════
+
+FUNDAMENTAL TRUTH:
+→ A Kafka topic partition is an APPEND-ONLY LOG
+→ "Append-only" means: new data is ALWAYS written at the END
+→ There is NO insert, NO update, NO reorder
+→ This is identical to writing in a notebook:
+  Page 1, Page 2, Page 3... you never go back and insert Page 1.5
+
+WHAT HAPPENS ON DISK:
+
+  food-orders-0/00000000000000000000.log
+  ┌──────────┬──────────┬──────────┬──────────┬──────────┐
+  │ offset=0 │ offset=1 │ offset=2 │ offset=3 │ offset=4 │
+  │ "news A" │ "news B" │ "news C" │ "news D" │ "news E" │
+  └──────────┴──────────┴──────────┴──────────┴──────────┘
+  ↑                                                      ↑
+  START of file                                    END of file
+  (oldest)                                         (newest)
+
+→ The broker APPENDS at the end → offset increments
+→ The consumer READS from left to right → offset 0, 1, 2, 3, 4
+→ This is WHY ordering is guaranteed within a single partition
+
+
+═══════════════════════════════════════════════════════════════
+WHAT HAPPENS DURING CONTINUOUS PRODUCING
+═══════════════════════════════════════════════════════════════
+
+  Time    Producer Action              Broker Log State
+  ─────   ─────────────────────        ──────────────────────────
+  T+0s    produce("headline A")   →    [0:"headline A"]
+  T+2s    produce("headline B")   →    [0:"A"][1:"headline B"]
+  T+4s    produce("headline C")   →    [0:"A"][1:"B"][2:"headline C"]
+  T+6s    produce("headline D")   →    [0:"A"][1:"B"][2:"C"][3:"headline D"]
+
+  CRITICAL: Each produce() call:
+  1. Serializes message to bytes
+  2. Places bytes in producer's INTERNAL BUFFER (in memory)
+  3. A background SENDER THREAD batches buffered messages
+  4. Sender thread sends batch to broker via TCP
+  5. Broker appends to partition log file
+  6. Broker returns offset in response
+  7. Producer's callback fires with offset confirmation
+
+  ┌──────────────────────────────────────────────────────────┐
+  │              PRODUCER INTERNAL ARCHITECTURE               │
+  │                                                          │
+  │  Your Code                                               │
+  │     │                                                    │
+  │     ▼                                                    │
+  │  ┌──────────┐     ┌──────────────┐     ┌─────────────┐  │
+  │  │ produce() │ ──→ │ Record       │ ──→ │ Sender      │  │
+  │  │ (buffer)  │     │ Accumulator  │     │ Thread      │  │
+  │  └──────────┘     │ (batches by  │     │ (TCP send)  │  │
+  │                   │  topic+part)  │     └──────┬──────┘  │
+  │                   └──────────────┘            │         │
+  │                                               ▼         │
+  │                                         To Broker       │
+  │                                         via TCP         │
+  │                                                          │
+  │  poll(0) ──→ triggers delivery callbacks from responses  │
+  └──────────────────────────────────────────────────────────┘
+
+  WHY poll(0) MATTERS IN A LOOP:
+  → The sender thread sends messages and receives responses
+  → Responses sit in an internal queue
+  → poll(0) processes that queue and fires YOUR callbacks
+  → Without poll(0), callbacks never fire until flush()
+
+
+═══════════════════════════════════════════════════════════════
+WHAT HAPPENS DURING CONTINUOUS CONSUMING
+═══════════════════════════════════════════════════════════════
+
+  Consumer                              Broker
+  ────────                              ──────
+  poll(1.0)                        
+    → FetchRequest(offset=0, max=500)  → reads log from offset 0
+    ← FetchResponse([msg0, msg1])      ← returns batch of messages
+    → process msg0, msg1
+    → auto-commit offset=2
+
+  poll(1.0)
+    → FetchRequest(offset=2, max=500)  → reads log from offset 2
+    ← FetchResponse([msg2, msg3, msg4])← returns batch
+    → process msg2, msg3, msg4
+    → auto-commit offset=5
+
+  poll(1.0)
+    → FetchRequest(offset=5, max=500)  → reads log from offset 5
+    ← FetchResponse([])                ← no new messages
+    → returns None to your code
+    → your code prints "waiting..."
+
+  CRITICAL INSIGHT:
+  → The consumer ALWAYS tells the broker "give me from offset X"
+  → The broker ALWAYS reads sequentially from the log file
+  → This is a SEQUENTIAL READ — the fastest type of disk I/O
+  → This is why Kafka can serve millions of messages per second
+
+
+═══════════════════════════════════════════════════════════════
+HOW REPLAY WORKS (Consumer restart / new consumer group)
+═══════════════════════════════════════════════════════════════
+
+  SCENARIO: Consumer "ticker-a" read up to offset 5, then crashed
+
+  Kafka's internal __consumer_offsets topic stores:
+  ┌────────────────────────────────────────────┐
+  │ group="ticker-a", topic="breaking-news",   │
+  │ partition=0, committed_offset=5            │
+  └────────────────────────────────────────────┘
+
+  CASE A: Consumer "ticker-a" restarts
+  → Kafka says: "your last committed offset was 5"
+  → Consumer resumes from offset 5
+  → NO REPLAY — picks up where it left off
+
+  CASE B: NEW consumer group "ticker-b" starts
+  → Kafka says: "I have no record of group ticker-b"
+  → auto.offset.reset = 'earliest'
+  → Consumer starts from offset 0
+  → FULL REPLAY — reads every message from the beginning
+
+  CASE C: NEW consumer group with auto.offset.reset = 'latest'
+  → Kafka says: "I have no record, and you said latest"
+  → Consumer starts from the CURRENT END of the log
+  → NO HISTORY — only sees new messages going forward
+
+  THIS IS THE POWER OF THE APPEND-ONLY LOG:
+  → Data is NEVER deleted after consumption
+  → Any consumer can read from ANY offset at ANY time
+  → Replay is a FIRST-CLASS feature, not a hack</code></pre></div>
+<hr>
+<h2>🚨 COMMON PITFALLS AND FAILURE MODES</h2>
+<div class="relative"><pre style="color: rgb(57, 58, 52); font-family: Consolas, &quot;Bitstream Vera Sans Mono&quot;, &quot;Courier New&quot;, Courier, monospace; direction: ltr; text-align: left; white-space: pre; word-spacing: normal; word-break: normal; font-size: 0.9em; line-height: 1.2em; tab-size: 4; hyphens: none; padding: 1em; margin: 0.5em 0px; overflow: auto; border: 1px solid rgb(221, 221, 221); background-color: white;"><code style="white-space: pre-wrap; word-break: break-all;"><span>PITFALL 1: "Producer loop runs but callbacks never fire"
+</span>├── CAUSE: Never calling poll(0) inside the loop
+├── WHY: Callbacks are queued internally — poll(0) processes them
+├── SYMPTOM: No "✅ delivered" messages printed during the loop
+└── FIX: Add producer.poll(0) after each produce() call
+
+PITFALL 2: "Consumer seems stuck — not receiving messages"
+├── CAUSE A: Consumer started AFTER producer finished with auto.offset.reset='latest'
+│   └── FIX: Use auto.offset.reset='earliest' for replay
+├── CAUSE B: Consumer is in the SAME group.id as a previous run
+│   └── WHY: Previous run already committed offset past all messages
+│   └── FIX: Use a new group.id OR reset offsets (Project 8 CLI tools)
+└── CAUSE C: Subscribed to wrong topic name (typo)
+    └── FIX: Verify with kafka-topics --list
+
+PITFALL 3: "Messages arrive but sequence numbers are wrong"
+├── CAUSE: You are using multiple partitions
+├── WHY: Ordering is only guaranteed WITHIN a single partition
+├── SYMPTOM: seq 1, seq 3, seq 2, seq 5, seq 4
+└── FIX: For this project, use exactly 1 partition (Project 3 explains multi-partition)
+
+PITFALL 4: "Producer throws BufferError in a fast loop"
+├── CAUSE: Producing faster than the sender thread can send
+├── WHY: Internal buffer (default 32MB) is full
+├── SYMPTOM: "Local: Queue full" error
+└── FIX: Add producer.poll(0) to let sender thread drain
+         OR increase buffer.memory (Project 39 performance tuning)
+
+PITFALL 5: "Consumer reads duplicate messages after restart"
+├── CAUSE: Auto-commit had not fired before crash
+├── WHY: Default auto-commit interval is 5 seconds
+│         If consumer crashes between commits, it re-reads from last committed
+├── THIS IS EXPECTED BEHAVIOR — not a bug
+└── DEEP DIVE: Project 6 (Offsets) and Project 11 (Delivery Guarantees)</code></pre></div>
+<hr>
+<h2>📈 SCALABILITY CONSIDERATIONS</h2>
+<div class="relative"><pre style="color: rgb(57, 58, 52); font-family: Consolas, &quot;Bitstream Vera Sans Mono&quot;, &quot;Courier New&quot;, Courier, monospace; direction: ltr; text-align: left; white-space: pre; word-spacing: normal; word-break: normal; font-size: 0.9em; line-height: 1.2em; tab-size: 4; hyphens: none; padding: 1em; margin: 0.5em 0px; overflow: auto; border: 1px solid rgb(221, 221, 221); background-color: white;"><code style="white-space: pre-wrap; word-break: break-all;"><span>CURRENT STATE (1 producer, 1 partition, 1 consumer):
+</span>
+  Throughput ceiling:
+  → Producer: ~50,000–100,000 messages/sec (single partition, no batching tuning)
+  → Consumer: ~100,000–200,000 messages/sec (sequential read is fast)
+  → Bottleneck: Single partition = single log file = single disk thread
+
+WHAT IF NEWS ARRIVES FASTER?
+  → Producer can buffer and batch (linger.ms — Project 39)
+  → But single partition has a hard ceiling
+
+WHAT IF ONE CONSUMER CANNOT KEEP UP?
+  → With 1 partition, you CANNOT add a second consumer in the same group
+  → 1 partition = maximum 1 consumer per group
+  → To parallelize, you need MORE partitions → Project 3
+
+WHAT IF THE BROKER DISK FILLS UP?
+  → Messages accumulate based on retention.ms (default 7 days)
+  → Old messages are deleted by Kafka's log cleaner
+  → Increase disk OR reduce retention for high-volume topics
+
+FOR NOW: This project proves the PATTERN works
+         Scaling the pattern is the job of Projects 3, 5, 9, and 39</code></pre></div>
+<hr>
+<h2>🔍 INTERPRETABILITY CONSIDERATIONS</h2>
+<div class="relative"><pre style="color: rgb(57, 58, 52); font-family: Consolas, &quot;Bitstream Vera Sans Mono&quot;, &quot;Courier New&quot;, Courier, monospace; direction: ltr; text-align: left; white-space: pre; word-spacing: normal; word-break: normal; font-size: 0.9em; line-height: 1.2em; tab-size: 4; hyphens: none; padding: 1em; margin: 0.5em 0px; overflow: auto; border: 1px solid rgb(221, 221, 221); background-color: white;"><code style="white-space: pre-wrap; word-break: break-all;"><span>HOW DO YOU VERIFY THE STREAM IS WORKING?
+</span>
+1. SEQUENCE NUMBERS IN MESSAGES
+   → Embed seq=1, seq=2, seq=3... in your message payload
+   → Consumer checks: current_seq == previous_seq + 1
+   → If not → you have an ordering violation (should not happen with 1 partition)
+
+2. OFFSET MONITORING
+   → Each message has a Kafka-assigned offset
+   → Offsets should be strictly incrementing: 0, 1, 2, 3...
+   → If you see gaps → a message was skipped (investigate!)
+
+3. TIMESTAMP TRACKING
+   → Kafka attaches a timestamp to every message
+   → CreateTime: when the producer created the message
+   → LogAppendTime: when the broker wrote it to disk
+   → Compare these to detect producer-to-broker latency
+
+4. LAG MONITORING
+   → "Lag" = latest offset in topic MINUS consumer's committed offset
+   → Lag = 0 means consumer is fully caught up
+   → Lag &gt; 0 means consumer is behind
+   → Lag growing means consumer is falling behind
+   → This is THE most important metric in Kafka (Project 28)
+
+  Example:
+  Topic latest offset: 1000
+  Consumer committed:   950
+  Lag:                   50  (consumer is 50 messages behind)</code></pre></div>
+<hr>
+<h2>💻 COMPLETE WORKING CODE</h2>
+<h3>PREREQUISITE: Topic Creation</h3>
+<div class="relative"><pre style="color: rgb(57, 58, 52); font-family: Consolas, &quot;Bitstream Vera Sans Mono&quot;, &quot;Courier New&quot;, Courier, monospace; direction: ltr; text-align: left; white-space: pre; word-spacing: normal; word-break: normal; font-size: 0.9em; line-height: 1.2em; tab-size: 4; hyphens: none; padding: 1em; margin: 0.5em 0px; overflow: auto; border: 1px solid rgb(221, 221, 221); background-color: white;"><code style="white-space: pre-wrap; word-break: break-all;"><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># ═══════════════════════════════════════════════════════════</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># Create the topic for this project (1 partition for ordering proof)</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># Assumes Kafka is running from Project 1 setup</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># ═══════════════════════════════════════════════════════════</span><span>
+</span>
+<span></span><span class="token" style="color: rgb(57, 58, 52);">docker</span><span> </span><span class="token builtin" style="color: rgb(43, 145, 175);">exec</span><span> -it kafka kafka-topics --create </span><span class="token" style="color: rgb(57, 58, 52);">\</span><span>
+</span><span>  --topic breaking-news </span><span class="token" style="color: rgb(57, 58, 52);">\</span><span>
+</span><span>  --bootstrap-server localhost:9092 </span><span class="token" style="color: rgb(57, 58, 52);">\</span><span>
+</span><span>  --partitions </span><span class="token" style="color: rgb(54, 172, 170);">1</span><span> </span><span class="token" style="color: rgb(57, 58, 52);">\</span><span>
+</span><span>  --replication-factor </span><span class="token" style="color: rgb(54, 172, 170);">1</span><span>
+</span>
+<span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># Verify</span><span>
+</span><span></span><span class="token" style="color: rgb(57, 58, 52);">docker</span><span> </span><span class="token builtin" style="color: rgb(43, 145, 175);">exec</span><span> -it kafka kafka-topics --describe </span><span class="token" style="color: rgb(57, 58, 52);">\</span><span>
+</span><span>  --topic breaking-news </span><span class="token" style="color: rgb(57, 58, 52);">\</span><span>
+</span>  --bootstrap-server localhost:9092</code></pre></div>
+<h3>THE REPORTER — Continuous Producer</h3>
+<div class="relative"><pre style="color: rgb(57, 58, 52); font-family: Consolas, &quot;Bitstream Vera Sans Mono&quot;, &quot;Courier New&quot;, Courier, monospace; direction: ltr; text-align: left; white-space: pre; word-spacing: normal; word-break: normal; font-size: 0.9em; line-height: 1.2em; tab-size: 4; hyphens: none; padding: 1em; margin: 0.5em 0px; overflow: auto; border: 1px solid rgb(221, 221, 221); background-color: white;"><code style="white-space: pre-wrap; word-break: break-all;"><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># ═══════════════════════════════════════════════════════════</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># file: reporter_producer.py</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># THE REPORTER — Continuously files breaking news headlines</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># ═══════════════════════════════════════════════════════════</span><span>
+</span>
+<span></span><span class="token" style="color: rgb(0, 0, 255);">from</span><span> confluent_kafka </span><span class="token" style="color: rgb(0, 0, 255);">import</span><span> Producer
+</span><span></span><span class="token" style="color: rgb(0, 0, 255);">import</span><span> json
+</span><span></span><span class="token" style="color: rgb(0, 0, 255);">import</span><span> time
+</span><span></span><span class="token" style="color: rgb(0, 0, 255);">import</span><span> random
+</span>
+<span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># ─────────────────────────────────────────────────────────</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># CONFIGURATION</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># Same as Project 1 — bootstrap.servers points to broker</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># ─────────────────────────────────────────────────────────</span><span>
+</span>
+<span>config </span><span class="token" style="color: rgb(57, 58, 52);">=</span><span> </span><span class="token" style="color: rgb(57, 58, 52);">{</span><span>
+</span><span>    </span><span class="token" style="color: rgb(163, 21, 21);">'bootstrap.servers'</span><span class="token" style="color: rgb(57, 58, 52);">:</span><span> </span><span class="token" style="color: rgb(163, 21, 21);">'localhost:9092'</span><span class="token" style="color: rgb(57, 58, 52);">,</span><span>
+</span><span></span><span class="token" style="color: rgb(57, 58, 52);">}</span><span>
+</span>
+<span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># ─────────────────────────────────────────────────────────</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># DELIVERY CALLBACK (same pattern as Project 1)</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># But now we track SUCCESS and FAILURE counts</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># ─────────────────────────────────────────────────────────</span><span>
+</span>
+<span>stats </span><span class="token" style="color: rgb(57, 58, 52);">=</span><span> </span><span class="token" style="color: rgb(57, 58, 52);">{</span><span class="token" style="color: rgb(163, 21, 21);">'delivered'</span><span class="token" style="color: rgb(57, 58, 52);">:</span><span> </span><span class="token" style="color: rgb(54, 172, 170);">0</span><span class="token" style="color: rgb(57, 58, 52);">,</span><span> </span><span class="token" style="color: rgb(163, 21, 21);">'failed'</span><span class="token" style="color: rgb(57, 58, 52);">:</span><span> </span><span class="token" style="color: rgb(54, 172, 170);">0</span><span class="token" style="color: rgb(57, 58, 52);">}</span><span>
+</span>
+<span></span><span class="token" style="color: rgb(0, 0, 255);">def</span><span> </span><span class="token" style="color: rgb(57, 58, 52);">delivery_callback</span><span class="token" style="color: rgb(57, 58, 52);">(</span><span>err</span><span class="token" style="color: rgb(57, 58, 52);">,</span><span> msg</span><span class="token" style="color: rgb(57, 58, 52);">)</span><span class="token" style="color: rgb(57, 58, 52);">:</span><span>
+</span><span>    </span><span class="token" style="color: rgb(0, 0, 255);">if</span><span> err </span><span class="token" style="color: rgb(0, 0, 255);">is</span><span> </span><span class="token" style="color: rgb(0, 0, 255);">not</span><span> </span><span class="token" style="color: rgb(54, 172, 170);">None</span><span class="token" style="color: rgb(57, 58, 52);">:</span><span>
+</span><span>        stats</span><span class="token" style="color: rgb(57, 58, 52);">[</span><span class="token" style="color: rgb(163, 21, 21);">'failed'</span><span class="token" style="color: rgb(57, 58, 52);">]</span><span> </span><span class="token" style="color: rgb(57, 58, 52);">+=</span><span> </span><span class="token" style="color: rgb(54, 172, 170);">1</span><span>
+</span><span>        </span><span class="token" style="color: rgb(0, 0, 255);">print</span><span class="token" style="color: rgb(57, 58, 52);">(</span><span class="token string-interpolation" style="color: rgb(163, 21, 21);">f'❌ DELIVERY FAILED [seq unknown]: </span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">{</span><span class="token string-interpolation interpolation">err</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">}</span><span class="token string-interpolation" style="color: rgb(163, 21, 21);">'</span><span class="token" style="color: rgb(57, 58, 52);">)</span><span>
+</span><span>    </span><span class="token" style="color: rgb(0, 0, 255);">else</span><span class="token" style="color: rgb(57, 58, 52);">:</span><span>
+</span><span>        stats</span><span class="token" style="color: rgb(57, 58, 52);">[</span><span class="token" style="color: rgb(163, 21, 21);">'delivered'</span><span class="token" style="color: rgb(57, 58, 52);">]</span><span> </span><span class="token" style="color: rgb(57, 58, 52);">+=</span><span> </span><span class="token" style="color: rgb(54, 172, 170);">1</span><span>
+</span><span>        </span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># Decode the message to show the sequence number</span><span>
+</span><span>        payload </span><span class="token" style="color: rgb(57, 58, 52);">=</span><span> json</span><span class="token" style="color: rgb(57, 58, 52);">.</span><span>loads</span><span class="token" style="color: rgb(57, 58, 52);">(</span><span>msg</span><span class="token" style="color: rgb(57, 58, 52);">.</span><span>value</span><span class="token" style="color: rgb(57, 58, 52);">(</span><span class="token" style="color: rgb(57, 58, 52);">)</span><span class="token" style="color: rgb(57, 58, 52);">.</span><span>decode</span><span class="token" style="color: rgb(57, 58, 52);">(</span><span class="token" style="color: rgb(163, 21, 21);">'utf-8'</span><span class="token" style="color: rgb(57, 58, 52);">)</span><span class="token" style="color: rgb(57, 58, 52);">)</span><span>
+</span><span>        </span><span class="token" style="color: rgb(0, 0, 255);">print</span><span class="token" style="color: rgb(57, 58, 52);">(</span><span>
+</span><span>            </span><span class="token string-interpolation" style="color: rgb(163, 21, 21);">f'✅ Delivered | '</span><span>
+</span><span>            </span><span class="token string-interpolation" style="color: rgb(163, 21, 21);">f'seq=</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">{</span><span class="token string-interpolation interpolation">payload</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">[</span><span class="token string-interpolation interpolation" style="color: rgb(163, 21, 21);">"sequence"</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">]</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">:</span><span class="token string-interpolation interpolation format-spec">&gt;4</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">}</span><span class="token string-interpolation" style="color: rgb(163, 21, 21);"> | '</span><span>
+</span><span>            </span><span class="token string-interpolation" style="color: rgb(163, 21, 21);">f'offset=</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">{</span><span class="token string-interpolation interpolation">msg</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">.</span><span class="token string-interpolation interpolation">offset</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">(</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">)</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">:</span><span class="token string-interpolation interpolation format-spec">&gt;4</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">}</span><span class="token string-interpolation" style="color: rgb(163, 21, 21);"> | '</span><span>
+</span><span>            </span><span class="token string-interpolation" style="color: rgb(163, 21, 21);">f'</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">{</span><span class="token string-interpolation interpolation">payload</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">[</span><span class="token string-interpolation interpolation" style="color: rgb(163, 21, 21);">"headline"</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">]</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">[</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">:</span><span class="token string-interpolation interpolation format-spec">50]</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">}</span><span class="token string-interpolation" style="color: rgb(163, 21, 21);">'</span><span>
+</span><span>        </span><span class="token" style="color: rgb(57, 58, 52);">)</span><span>
+</span>
+<span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># ─────────────────────────────────────────────────────────</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># SIMULATED NEWS HEADLINES</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># ─────────────────────────────────────────────────────────</span><span>
+</span>
+<span>categories </span><span class="token" style="color: rgb(57, 58, 52);">=</span><span> </span><span class="token" style="color: rgb(57, 58, 52);">[</span><span class="token" style="color: rgb(163, 21, 21);">'POLITICS'</span><span class="token" style="color: rgb(57, 58, 52);">,</span><span> </span><span class="token" style="color: rgb(163, 21, 21);">'SPORTS'</span><span class="token" style="color: rgb(57, 58, 52);">,</span><span> </span><span class="token" style="color: rgb(163, 21, 21);">'TECH'</span><span class="token" style="color: rgb(57, 58, 52);">,</span><span> </span><span class="token" style="color: rgb(163, 21, 21);">'BUSINESS'</span><span class="token" style="color: rgb(57, 58, 52);">,</span><span> </span><span class="token" style="color: rgb(163, 21, 21);">'WEATHER'</span><span class="token" style="color: rgb(57, 58, 52);">]</span><span>
+</span>
+<span>headlines_pool </span><span class="token" style="color: rgb(57, 58, 52);">=</span><span> </span><span class="token" style="color: rgb(57, 58, 52);">[</span><span>
+</span><span>    </span><span class="token" style="color: rgb(163, 21, 21);">"Breaking: Major policy reform announced by government"</span><span class="token" style="color: rgb(57, 58, 52);">,</span><span>
+</span><span>    </span><span class="token" style="color: rgb(163, 21, 21);">"Championship finals set for this weekend"</span><span class="token" style="color: rgb(57, 58, 52);">,</span><span>
+</span><span>    </span><span class="token" style="color: rgb(163, 21, 21);">"New AI model breaks performance records"</span><span class="token" style="color: rgb(57, 58, 52);">,</span><span>
+</span><span>    </span><span class="token" style="color: rgb(163, 21, 21);">"Stock market hits all-time high amid tech rally"</span><span class="token" style="color: rgb(57, 58, 52);">,</span><span>
+</span><span>    </span><span class="token" style="color: rgb(163, 21, 21);">"Severe storm warning issued for coastal regions"</span><span class="token" style="color: rgb(57, 58, 52);">,</span><span>
+</span><span>    </span><span class="token" style="color: rgb(163, 21, 21);">"International trade agreement signed by 12 nations"</span><span class="token" style="color: rgb(57, 58, 52);">,</span><span>
+</span><span>    </span><span class="token" style="color: rgb(163, 21, 21);">"Olympic committee reveals host city for 2036 games"</span><span class="token" style="color: rgb(57, 58, 52);">,</span><span>
+</span><span>    </span><span class="token" style="color: rgb(163, 21, 21);">"Quantum computing breakthrough at research lab"</span><span class="token" style="color: rgb(57, 58, 52);">,</span><span>
+</span><span>    </span><span class="token" style="color: rgb(163, 21, 21);">"Central bank announces interest rate decision"</span><span class="token" style="color: rgb(57, 58, 52);">,</span><span>
+</span><span>    </span><span class="token" style="color: rgb(163, 21, 21);">"Heatwave expected to last through next week"</span><span class="token" style="color: rgb(57, 58, 52);">,</span><span>
+</span><span>    </span><span class="token" style="color: rgb(163, 21, 21);">"Emergency summit called over diplomatic tensions"</span><span class="token" style="color: rgb(57, 58, 52);">,</span><span>
+</span><span>    </span><span class="token" style="color: rgb(163, 21, 21);">"World cup qualifier results shock the nation"</span><span class="token" style="color: rgb(57, 58, 52);">,</span><span>
+</span><span>    </span><span class="token" style="color: rgb(163, 21, 21);">"Major cybersecurity vulnerability discovered"</span><span class="token" style="color: rgb(57, 58, 52);">,</span><span>
+</span><span>    </span><span class="token" style="color: rgb(163, 21, 21);">"Startup raises record-breaking funding round"</span><span class="token" style="color: rgb(57, 58, 52);">,</span><span>
+</span><span>    </span><span class="token" style="color: rgb(163, 21, 21);">"Flooding displaces thousands in river delta region"</span><span class="token" style="color: rgb(57, 58, 52);">,</span><span>
+</span><span></span><span class="token" style="color: rgb(57, 58, 52);">]</span><span>
+</span>
+<span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># ─────────────────────────────────────────────────────────</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># CREATE PRODUCER</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># ─────────────────────────────────────────────────────────</span><span>
+</span>
+<span>producer </span><span class="token" style="color: rgb(57, 58, 52);">=</span><span> Producer</span><span class="token" style="color: rgb(57, 58, 52);">(</span><span>config</span><span class="token" style="color: rgb(57, 58, 52);">)</span><span>
+</span><span>topic_name </span><span class="token" style="color: rgb(57, 58, 52);">=</span><span> </span><span class="token" style="color: rgb(163, 21, 21);">'breaking-news'</span><span>
+</span>
+<span></span><span class="token" style="color: rgb(0, 0, 255);">print</span><span class="token" style="color: rgb(57, 58, 52);">(</span><span class="token" style="color: rgb(163, 21, 21);">"📰 ByteWire News Agency — Reporter Station"</span><span class="token" style="color: rgb(57, 58, 52);">)</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 0, 255);">print</span><span class="token" style="color: rgb(57, 58, 52);">(</span><span class="token string-interpolation" style="color: rgb(163, 21, 21);">f"   Producing to topic: </span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">{</span><span class="token string-interpolation interpolation">topic_name</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">}</span><span class="token string-interpolation" style="color: rgb(163, 21, 21);">"</span><span class="token" style="color: rgb(57, 58, 52);">)</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 0, 255);">print</span><span class="token" style="color: rgb(57, 58, 52);">(</span><span class="token string-interpolation" style="color: rgb(163, 21, 21);">f"   Press Ctrl+C to stop\n"</span><span class="token" style="color: rgb(57, 58, 52);">)</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 0, 255);">print</span><span class="token" style="color: rgb(57, 58, 52);">(</span><span class="token" style="color: rgb(163, 21, 21);">"="</span><span> </span><span class="token" style="color: rgb(57, 58, 52);">*</span><span> </span><span class="token" style="color: rgb(54, 172, 170);">70</span><span class="token" style="color: rgb(57, 58, 52);">)</span><span>
+</span>
+<span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># ─────────────────────────────────────────────────────────</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># CONTINUOUS PRODUCING LOOP</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># ─────────────────────────────────────────────────────────</span><span>
+</span>
+<span>sequence </span><span class="token" style="color: rgb(57, 58, 52);">=</span><span> </span><span class="token" style="color: rgb(54, 172, 170);">0</span><span>
+</span>
+<span></span><span class="token" style="color: rgb(0, 0, 255);">try</span><span class="token" style="color: rgb(57, 58, 52);">:</span><span>
+</span><span>    </span><span class="token" style="color: rgb(0, 0, 255);">while</span><span> </span><span class="token" style="color: rgb(54, 172, 170);">True</span><span class="token" style="color: rgb(57, 58, 52);">:</span><span>
+</span><span>        sequence </span><span class="token" style="color: rgb(57, 58, 52);">+=</span><span> </span><span class="token" style="color: rgb(54, 172, 170);">1</span><span>
+</span>
+<span>        </span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># Build the news message with rich metadata</span><span>
+</span><span>        message </span><span class="token" style="color: rgb(57, 58, 52);">=</span><span> </span><span class="token" style="color: rgb(57, 58, 52);">{</span><span>
+</span><span>            </span><span class="token" style="color: rgb(163, 21, 21);">"sequence"</span><span class="token" style="color: rgb(57, 58, 52);">:</span><span> sequence</span><span class="token" style="color: rgb(57, 58, 52);">,</span><span>
+</span><span>            </span><span class="token" style="color: rgb(163, 21, 21);">"category"</span><span class="token" style="color: rgb(57, 58, 52);">:</span><span> random</span><span class="token" style="color: rgb(57, 58, 52);">.</span><span>choice</span><span class="token" style="color: rgb(57, 58, 52);">(</span><span>categories</span><span class="token" style="color: rgb(57, 58, 52);">)</span><span class="token" style="color: rgb(57, 58, 52);">,</span><span>
+</span><span>            </span><span class="token" style="color: rgb(163, 21, 21);">"headline"</span><span class="token" style="color: rgb(57, 58, 52);">:</span><span> random</span><span class="token" style="color: rgb(57, 58, 52);">.</span><span>choice</span><span class="token" style="color: rgb(57, 58, 52);">(</span><span>headlines_pool</span><span class="token" style="color: rgb(57, 58, 52);">)</span><span class="token" style="color: rgb(57, 58, 52);">,</span><span>
+</span><span>            </span><span class="token" style="color: rgb(163, 21, 21);">"reporter"</span><span class="token" style="color: rgb(57, 58, 52);">:</span><span> </span><span class="token string-interpolation" style="color: rgb(163, 21, 21);">f"reporter-</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">{</span><span class="token string-interpolation interpolation">random</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">.</span><span class="token string-interpolation interpolation">randint</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">(</span><span class="token string-interpolation interpolation" style="color: rgb(54, 172, 170);">1</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">,</span><span class="token string-interpolation interpolation"> </span><span class="token string-interpolation interpolation" style="color: rgb(54, 172, 170);">5</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">)</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">}</span><span class="token string-interpolation" style="color: rgb(163, 21, 21);">"</span><span class="token" style="color: rgb(57, 58, 52);">,</span><span>
+</span><span>            </span><span class="token" style="color: rgb(163, 21, 21);">"priority"</span><span class="token" style="color: rgb(57, 58, 52);">:</span><span> random</span><span class="token" style="color: rgb(57, 58, 52);">.</span><span>choice</span><span class="token" style="color: rgb(57, 58, 52);">(</span><span class="token" style="color: rgb(57, 58, 52);">[</span><span class="token" style="color: rgb(163, 21, 21);">"HIGH"</span><span class="token" style="color: rgb(57, 58, 52);">,</span><span> </span><span class="token" style="color: rgb(163, 21, 21);">"MEDIUM"</span><span class="token" style="color: rgb(57, 58, 52);">,</span><span> </span><span class="token" style="color: rgb(163, 21, 21);">"LOW"</span><span class="token" style="color: rgb(57, 58, 52);">]</span><span class="token" style="color: rgb(57, 58, 52);">)</span><span class="token" style="color: rgb(57, 58, 52);">,</span><span>
+</span><span>            </span><span class="token" style="color: rgb(163, 21, 21);">"produced_at"</span><span class="token" style="color: rgb(57, 58, 52);">:</span><span> time</span><span class="token" style="color: rgb(57, 58, 52);">.</span><span>time</span><span class="token" style="color: rgb(57, 58, 52);">(</span><span class="token" style="color: rgb(57, 58, 52);">)</span><span class="token" style="color: rgb(57, 58, 52);">,</span><span>
+</span><span>            </span><span class="token" style="color: rgb(163, 21, 21);">"produced_at_human"</span><span class="token" style="color: rgb(57, 58, 52);">:</span><span> time</span><span class="token" style="color: rgb(57, 58, 52);">.</span><span>strftime</span><span class="token" style="color: rgb(57, 58, 52);">(</span><span class="token" style="color: rgb(163, 21, 21);">'%Y-%m-%d %H:%M:%S'</span><span class="token" style="color: rgb(57, 58, 52);">)</span><span class="token" style="color: rgb(57, 58, 52);">,</span><span>
+</span><span>        </span><span class="token" style="color: rgb(57, 58, 52);">}</span><span>
+</span>
+<span>        </span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># ─────────────────────────────────────────────────</span><span>
+</span><span>        </span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># PRODUCE — puts message in internal buffer</span><span>
+</span><span>        </span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># ─────────────────────────────────────────────────</span><span>
+</span><span>        producer</span><span class="token" style="color: rgb(57, 58, 52);">.</span><span>produce</span><span class="token" style="color: rgb(57, 58, 52);">(</span><span>
+</span><span>            topic</span><span class="token" style="color: rgb(57, 58, 52);">=</span><span>topic_name</span><span class="token" style="color: rgb(57, 58, 52);">,</span><span>
+</span><span>            value</span><span class="token" style="color: rgb(57, 58, 52);">=</span><span>json</span><span class="token" style="color: rgb(57, 58, 52);">.</span><span>dumps</span><span class="token" style="color: rgb(57, 58, 52);">(</span><span>message</span><span class="token" style="color: rgb(57, 58, 52);">)</span><span class="token" style="color: rgb(57, 58, 52);">.</span><span>encode</span><span class="token" style="color: rgb(57, 58, 52);">(</span><span class="token" style="color: rgb(163, 21, 21);">'utf-8'</span><span class="token" style="color: rgb(57, 58, 52);">)</span><span class="token" style="color: rgb(57, 58, 52);">,</span><span>
+</span><span>            callback</span><span class="token" style="color: rgb(57, 58, 52);">=</span><span>delivery_callback
+</span><span>        </span><span class="token" style="color: rgb(57, 58, 52);">)</span><span>
+</span>
+<span>        </span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># ─────────────────────────────────────────────────</span><span>
+</span><span>        </span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># poll(0) — NON-BLOCKING callback processing</span><span>
+</span><span>        </span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># ─────────────────────────────────────────────────</span><span>
+</span><span>        </span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># THIS IS CRITICAL IN A LOOP</span><span>
+</span><span>        </span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># Without this, callbacks queue up forever</span><span>
+</span><span>        </span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># poll(0) means: "process any pending callbacks, don't wait"</span><span>
+</span><span>        producer</span><span class="token" style="color: rgb(57, 58, 52);">.</span><span>poll</span><span class="token" style="color: rgb(57, 58, 52);">(</span><span class="token" style="color: rgb(54, 172, 170);">0</span><span class="token" style="color: rgb(57, 58, 52);">)</span><span>
+</span>
+<span>        </span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># Simulate real-world pacing: one headline every 2 seconds</span><span>
+</span><span>        time</span><span class="token" style="color: rgb(57, 58, 52);">.</span><span>sleep</span><span class="token" style="color: rgb(57, 58, 52);">(</span><span class="token" style="color: rgb(54, 172, 170);">2</span><span class="token" style="color: rgb(57, 58, 52);">)</span><span>
+</span>
+<span></span><span class="token" style="color: rgb(0, 0, 255);">except</span><span> KeyboardInterrupt</span><span class="token" style="color: rgb(57, 58, 52);">:</span><span>
+</span><span>    </span><span class="token" style="color: rgb(0, 0, 255);">print</span><span class="token" style="color: rgb(57, 58, 52);">(</span><span class="token" style="color: rgb(163, 21, 21);">"\n\n🛑 Reporter signing off..."</span><span class="token" style="color: rgb(57, 58, 52);">)</span><span>
+</span>
+<span></span><span class="token" style="color: rgb(0, 0, 255);">finally</span><span class="token" style="color: rgb(57, 58, 52);">:</span><span>
+</span><span>    </span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># ─────────────────────────────────────────────────────</span><span>
+</span><span>    </span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># FLUSH — ensure all buffered messages are sent</span><span>
+</span><span>    </span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># ─────────────────────────────────────────────────────</span><span>
+</span><span>    </span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># This is the FINAL flush — blocks until complete</span><span>
+</span><span>    </span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># In the loop we used poll(0), here we use flush()</span><span>
+</span><span>    remaining </span><span class="token" style="color: rgb(57, 58, 52);">=</span><span> producer</span><span class="token" style="color: rgb(57, 58, 52);">.</span><span>flush</span><span class="token" style="color: rgb(57, 58, 52);">(</span><span>timeout</span><span class="token" style="color: rgb(57, 58, 52);">=</span><span class="token" style="color: rgb(54, 172, 170);">10</span><span class="token" style="color: rgb(57, 58, 52);">)</span><span>
+</span>
+<span>    </span><span class="token" style="color: rgb(0, 0, 255);">print</span><span class="token" style="color: rgb(57, 58, 52);">(</span><span class="token string-interpolation" style="color: rgb(163, 21, 21);">f"\n📊 Session Stats:"</span><span class="token" style="color: rgb(57, 58, 52);">)</span><span>
+</span><span>    </span><span class="token" style="color: rgb(0, 0, 255);">print</span><span class="token" style="color: rgb(57, 58, 52);">(</span><span class="token string-interpolation" style="color: rgb(163, 21, 21);">f"   Total produced : </span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">{</span><span class="token string-interpolation interpolation">sequence</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">}</span><span class="token string-interpolation" style="color: rgb(163, 21, 21);">"</span><span class="token" style="color: rgb(57, 58, 52);">)</span><span>
+</span><span>    </span><span class="token" style="color: rgb(0, 0, 255);">print</span><span class="token" style="color: rgb(57, 58, 52);">(</span><span class="token string-interpolation" style="color: rgb(163, 21, 21);">f"   Delivered      : </span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">{</span><span class="token string-interpolation interpolation">stats</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">[</span><span class="token string-interpolation interpolation" style="color: rgb(163, 21, 21);">'delivered'</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">]</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">}</span><span class="token string-interpolation" style="color: rgb(163, 21, 21);">"</span><span class="token" style="color: rgb(57, 58, 52);">)</span><span>
+</span><span>    </span><span class="token" style="color: rgb(0, 0, 255);">print</span><span class="token" style="color: rgb(57, 58, 52);">(</span><span class="token string-interpolation" style="color: rgb(163, 21, 21);">f"   Failed         : </span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">{</span><span class="token string-interpolation interpolation">stats</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">[</span><span class="token string-interpolation interpolation" style="color: rgb(163, 21, 21);">'failed'</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">]</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">}</span><span class="token string-interpolation" style="color: rgb(163, 21, 21);">"</span><span class="token" style="color: rgb(57, 58, 52);">)</span><span>
+</span><span>    </span><span class="token" style="color: rgb(0, 0, 255);">print</span><span class="token" style="color: rgb(57, 58, 52);">(</span><span class="token string-interpolation" style="color: rgb(163, 21, 21);">f"   Still in buffer: </span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">{</span><span class="token string-interpolation interpolation">remaining</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">}</span><span class="token string-interpolation" style="color: rgb(163, 21, 21);">"</span><span class="token" style="color: rgb(57, 58, 52);">)</span><span>
+</span><span>    </span><span class="token" style="color: rgb(0, 0, 255);">print</span><span class="token" style="color: rgb(57, 58, 52);">(</span><span class="token" style="color: rgb(163, 21, 21);">"📰 Reporter station closed."</span><span class="token" style="color: rgb(57, 58, 52);">)</span></code></pre></div>
+<h3>THE TICKER — Continuous Consumer with Ordering Validation</h3>
+<div class="relative"><pre style="color: rgb(57, 58, 52); font-family: Consolas, &quot;Bitstream Vera Sans Mono&quot;, &quot;Courier New&quot;, Courier, monospace; direction: ltr; text-align: left; white-space: pre; word-spacing: normal; word-break: normal; font-size: 0.9em; line-height: 1.2em; tab-size: 4; hyphens: none; padding: 1em; margin: 0.5em 0px; overflow: auto; border: 1px solid rgb(221, 221, 221); background-color: white;"><code style="white-space: pre-wrap; word-break: break-all;"><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># ═══════════════════════════════════════════════════════════</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># file: ticker_consumer.py</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># THE NEWS TICKER — Continuously displays headlines in order</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># Validates that ordering is preserved</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># ═══════════════════════════════════════════════════════════</span><span>
+</span>
+<span></span><span class="token" style="color: rgb(0, 0, 255);">from</span><span> confluent_kafka </span><span class="token" style="color: rgb(0, 0, 255);">import</span><span> Consumer</span><span class="token" style="color: rgb(57, 58, 52);">,</span><span> KafkaError
+</span><span></span><span class="token" style="color: rgb(0, 0, 255);">import</span><span> json
+</span><span></span><span class="token" style="color: rgb(0, 0, 255);">import</span><span> time
+</span>
+<span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># ─────────────────────────────────────────────────────────</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># CONFIGURATION</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># group.id and auto.offset.reset explained in Project 1</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># ─────────────────────────────────────────────────────────</span><span>
+</span>
+<span>config </span><span class="token" style="color: rgb(57, 58, 52);">=</span><span> </span><span class="token" style="color: rgb(57, 58, 52);">{</span><span>
+</span><span>    </span><span class="token" style="color: rgb(163, 21, 21);">'bootstrap.servers'</span><span class="token" style="color: rgb(57, 58, 52);">:</span><span> </span><span class="token" style="color: rgb(163, 21, 21);">'localhost:9092'</span><span class="token" style="color: rgb(57, 58, 52);">,</span><span>
+</span><span>    </span><span class="token" style="color: rgb(163, 21, 21);">'group.id'</span><span class="token" style="color: rgb(57, 58, 52);">:</span><span> </span><span class="token" style="color: rgb(163, 21, 21);">'ticker-display-v1'</span><span class="token" style="color: rgb(57, 58, 52);">,</span><span>
+</span><span>    </span><span class="token" style="color: rgb(163, 21, 21);">'auto.offset.reset'</span><span class="token" style="color: rgb(57, 58, 52);">:</span><span> </span><span class="token" style="color: rgb(163, 21, 21);">'earliest'</span><span class="token" style="color: rgb(57, 58, 52);">,</span><span>
+</span><span></span><span class="token" style="color: rgb(57, 58, 52);">}</span><span>
+</span>
+<span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># ─────────────────────────────────────────────────────────</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># CREATE CONSUMER AND SUBSCRIBE</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># ─────────────────────────────────────────────────────────</span><span>
+</span>
+<span>consumer </span><span class="token" style="color: rgb(57, 58, 52);">=</span><span> Consumer</span><span class="token" style="color: rgb(57, 58, 52);">(</span><span>config</span><span class="token" style="color: rgb(57, 58, 52);">)</span><span>
+</span><span>consumer</span><span class="token" style="color: rgb(57, 58, 52);">.</span><span>subscribe</span><span class="token" style="color: rgb(57, 58, 52);">(</span><span class="token" style="color: rgb(57, 58, 52);">[</span><span class="token" style="color: rgb(163, 21, 21);">'breaking-news'</span><span class="token" style="color: rgb(57, 58, 52);">]</span><span class="token" style="color: rgb(57, 58, 52);">)</span><span>
+</span>
+<span></span><span class="token" style="color: rgb(0, 0, 255);">print</span><span class="token" style="color: rgb(57, 58, 52);">(</span><span class="token" style="color: rgb(163, 21, 21);">"📺 ByteWire News Ticker — Display Screen #1"</span><span class="token" style="color: rgb(57, 58, 52);">)</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 0, 255);">print</span><span class="token" style="color: rgb(57, 58, 52);">(</span><span class="token string-interpolation" style="color: rgb(163, 21, 21);">f"   Consumer Group: </span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">{</span><span class="token string-interpolation interpolation">config</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">[</span><span class="token string-interpolation interpolation" style="color: rgb(163, 21, 21);">'group.id'</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">]</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">}</span><span class="token string-interpolation" style="color: rgb(163, 21, 21);">"</span><span class="token" style="color: rgb(57, 58, 52);">)</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 0, 255);">print</span><span class="token" style="color: rgb(57, 58, 52);">(</span><span class="token string-interpolation" style="color: rgb(163, 21, 21);">f"   Reading from  : breaking-news"</span><span class="token" style="color: rgb(57, 58, 52);">)</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 0, 255);">print</span><span class="token" style="color: rgb(57, 58, 52);">(</span><span class="token string-interpolation" style="color: rgb(163, 21, 21);">f"   Press Ctrl+C to stop\n"</span><span class="token" style="color: rgb(57, 58, 52);">)</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 0, 255);">print</span><span class="token" style="color: rgb(57, 58, 52);">(</span><span class="token" style="color: rgb(163, 21, 21);">"="</span><span> </span><span class="token" style="color: rgb(57, 58, 52);">*</span><span> </span><span class="token" style="color: rgb(54, 172, 170);">70</span><span class="token" style="color: rgb(57, 58, 52);">)</span><span>
+</span>
+<span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># ─────────────────────────────────────────────────────────</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># ORDERING VALIDATION STATE</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># ─────────────────────────────────────────────────────────</span><span>
+</span>
+<span>last_sequence </span><span class="token" style="color: rgb(57, 58, 52);">=</span><span> </span><span class="token" style="color: rgb(54, 172, 170);">0</span><span>
+</span><span>last_offset </span><span class="token" style="color: rgb(57, 58, 52);">=</span><span> </span><span class="token" style="color: rgb(57, 58, 52);">-</span><span class="token" style="color: rgb(54, 172, 170);">1</span><span>
+</span><span>messages_received </span><span class="token" style="color: rgb(57, 58, 52);">=</span><span> </span><span class="token" style="color: rgb(54, 172, 170);">0</span><span>
+</span><span>ordering_violations </span><span class="token" style="color: rgb(57, 58, 52);">=</span><span> </span><span class="token" style="color: rgb(54, 172, 170);">0</span><span>
+</span>
+<span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># ─────────────────────────────────────────────────────────</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># CONTINUOUS CONSUMPTION LOOP</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># ─────────────────────────────────────────────────────────</span><span>
+</span>
+<span></span><span class="token" style="color: rgb(0, 0, 255);">try</span><span class="token" style="color: rgb(57, 58, 52);">:</span><span>
+</span><span>    </span><span class="token" style="color: rgb(0, 0, 255);">while</span><span> </span><span class="token" style="color: rgb(54, 172, 170);">True</span><span class="token" style="color: rgb(57, 58, 52);">:</span><span>
+</span><span>        </span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># ─────────────────────────────────────────────────</span><span>
+</span><span>        </span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># poll(1.0) — wait up to 1 second for a message</span><span>
+</span><span>        </span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># NO additional sleep() needed — poll IS the wait</span><span>
+</span><span>        </span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># ─────────────────────────────────────────────────</span><span>
+</span><span>        msg </span><span class="token" style="color: rgb(57, 58, 52);">=</span><span> consumer</span><span class="token" style="color: rgb(57, 58, 52);">.</span><span>poll</span><span class="token" style="color: rgb(57, 58, 52);">(</span><span>timeout</span><span class="token" style="color: rgb(57, 58, 52);">=</span><span class="token" style="color: rgb(54, 172, 170);">1.0</span><span class="token" style="color: rgb(57, 58, 52);">)</span><span>
+</span>
+<span>        </span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># No message within timeout</span><span>
+</span><span>        </span><span class="token" style="color: rgb(0, 0, 255);">if</span><span> msg </span><span class="token" style="color: rgb(0, 0, 255);">is</span><span> </span><span class="token" style="color: rgb(54, 172, 170);">None</span><span class="token" style="color: rgb(57, 58, 52);">:</span><span>
+</span><span>            </span><span class="token" style="color: rgb(0, 0, 255);">continue</span><span>
+</span>
+<span>        </span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># Error handling</span><span>
+</span><span>        </span><span class="token" style="color: rgb(0, 0, 255);">if</span><span> msg</span><span class="token" style="color: rgb(57, 58, 52);">.</span><span>error</span><span class="token" style="color: rgb(57, 58, 52);">(</span><span class="token" style="color: rgb(57, 58, 52);">)</span><span class="token" style="color: rgb(57, 58, 52);">:</span><span>
+</span><span>            </span><span class="token" style="color: rgb(0, 0, 255);">if</span><span> msg</span><span class="token" style="color: rgb(57, 58, 52);">.</span><span>error</span><span class="token" style="color: rgb(57, 58, 52);">(</span><span class="token" style="color: rgb(57, 58, 52);">)</span><span class="token" style="color: rgb(57, 58, 52);">.</span><span>code</span><span class="token" style="color: rgb(57, 58, 52);">(</span><span class="token" style="color: rgb(57, 58, 52);">)</span><span> </span><span class="token" style="color: rgb(57, 58, 52);">==</span><span> KafkaError</span><span class="token" style="color: rgb(57, 58, 52);">.</span><span>_PARTITION_EOF</span><span class="token" style="color: rgb(57, 58, 52);">:</span><span>
+</span><span>                </span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># Reached end of available messages — not an error</span><span>
+</span><span>                </span><span class="token" style="color: rgb(0, 0, 255);">print</span><span class="token" style="color: rgb(57, 58, 52);">(</span><span class="token string-interpolation" style="color: rgb(163, 21, 21);">f"   📭 Caught up! Waiting for new headlines..."</span><span class="token" style="color: rgb(57, 58, 52);">)</span><span>
+</span><span>            </span><span class="token" style="color: rgb(0, 0, 255);">else</span><span class="token" style="color: rgb(57, 58, 52);">:</span><span>
+</span><span>                </span><span class="token" style="color: rgb(0, 0, 255);">print</span><span class="token" style="color: rgb(57, 58, 52);">(</span><span class="token string-interpolation" style="color: rgb(163, 21, 21);">f"   ❌ Error: </span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">{</span><span class="token string-interpolation interpolation">msg</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">.</span><span class="token string-interpolation interpolation">error</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">(</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">)</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">}</span><span class="token string-interpolation" style="color: rgb(163, 21, 21);">"</span><span class="token" style="color: rgb(57, 58, 52);">)</span><span>
+</span><span>            </span><span class="token" style="color: rgb(0, 0, 255);">continue</span><span>
+</span>
+<span>        </span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># ─────────────────────────────────────────────────</span><span>
+</span><span>        </span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># VALID MESSAGE — Deserialize and display</span><span>
+</span><span>        </span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># ─────────────────────────────────────────────────</span><span>
+</span><span>        messages_received </span><span class="token" style="color: rgb(57, 58, 52);">+=</span><span> </span><span class="token" style="color: rgb(54, 172, 170);">1</span><span>
+</span><span>        payload </span><span class="token" style="color: rgb(57, 58, 52);">=</span><span> json</span><span class="token" style="color: rgb(57, 58, 52);">.</span><span>loads</span><span class="token" style="color: rgb(57, 58, 52);">(</span><span>msg</span><span class="token" style="color: rgb(57, 58, 52);">.</span><span>value</span><span class="token" style="color: rgb(57, 58, 52);">(</span><span class="token" style="color: rgb(57, 58, 52);">)</span><span class="token" style="color: rgb(57, 58, 52);">.</span><span>decode</span><span class="token" style="color: rgb(57, 58, 52);">(</span><span class="token" style="color: rgb(163, 21, 21);">'utf-8'</span><span class="token" style="color: rgb(57, 58, 52);">)</span><span class="token" style="color: rgb(57, 58, 52);">)</span><span>
+</span>
+<span>        current_sequence </span><span class="token" style="color: rgb(57, 58, 52);">=</span><span> payload</span><span class="token" style="color: rgb(57, 58, 52);">[</span><span class="token" style="color: rgb(163, 21, 21);">'sequence'</span><span class="token" style="color: rgb(57, 58, 52);">]</span><span>
+</span><span>        current_offset </span><span class="token" style="color: rgb(57, 58, 52);">=</span><span> msg</span><span class="token" style="color: rgb(57, 58, 52);">.</span><span>offset</span><span class="token" style="color: rgb(57, 58, 52);">(</span><span class="token" style="color: rgb(57, 58, 52);">)</span><span>
+</span>
+<span>        </span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># ─────────────────────────────────────────────────</span><span>
+</span><span>        </span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># ORDERING VALIDATION</span><span>
+</span><span>        </span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># ─────────────────────────────────────────────────</span><span>
+</span><span>        </span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># Check 1: Kafka offset must be strictly incrementing</span><span>
+</span><span>        offset_ok </span><span class="token" style="color: rgb(57, 58, 52);">=</span><span> current_offset </span><span class="token" style="color: rgb(57, 58, 52);">==</span><span> last_offset </span><span class="token" style="color: rgb(57, 58, 52);">+</span><span> </span><span class="token" style="color: rgb(54, 172, 170);">1</span><span> </span><span class="token" style="color: rgb(0, 0, 255);">or</span><span> last_offset </span><span class="token" style="color: rgb(57, 58, 52);">==</span><span> </span><span class="token" style="color: rgb(57, 58, 52);">-</span><span class="token" style="color: rgb(54, 172, 170);">1</span><span>
+</span>
+<span>        </span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># Check 2: Our sequence number must be strictly incrementing</span><span>
+</span><span>        sequence_ok </span><span class="token" style="color: rgb(57, 58, 52);">=</span><span> current_sequence </span><span class="token" style="color: rgb(57, 58, 52);">==</span><span> last_sequence </span><span class="token" style="color: rgb(57, 58, 52);">+</span><span> </span><span class="token" style="color: rgb(54, 172, 170);">1</span><span> </span><span class="token" style="color: rgb(0, 0, 255);">or</span><span> last_sequence </span><span class="token" style="color: rgb(57, 58, 52);">==</span><span> </span><span class="token" style="color: rgb(54, 172, 170);">0</span><span>
+</span>
+<span>        order_status </span><span class="token" style="color: rgb(57, 58, 52);">=</span><span> </span><span class="token" style="color: rgb(163, 21, 21);">"✅"</span><span>
+</span><span>        </span><span class="token" style="color: rgb(0, 0, 255);">if</span><span> </span><span class="token" style="color: rgb(0, 0, 255);">not</span><span> offset_ok </span><span class="token" style="color: rgb(0, 0, 255);">or</span><span> </span><span class="token" style="color: rgb(0, 0, 255);">not</span><span> sequence_ok</span><span class="token" style="color: rgb(57, 58, 52);">:</span><span>
+</span><span>            order_status </span><span class="token" style="color: rgb(57, 58, 52);">=</span><span> </span><span class="token" style="color: rgb(163, 21, 21);">"⚠️ ORDER VIOLATION"</span><span>
+</span><span>            ordering_violations </span><span class="token" style="color: rgb(57, 58, 52);">+=</span><span> </span><span class="token" style="color: rgb(54, 172, 170);">1</span><span>
+</span>
+<span>        </span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># ─────────────────────────────────────────────────</span><span>
+</span><span>        </span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># DISPLAY THE TICKER</span><span>
+</span><span>        </span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># ─────────────────────────────────────────────────</span><span>
+</span><span>        </span><span class="token" style="color: rgb(0, 0, 255);">print</span><span class="token" style="color: rgb(57, 58, 52);">(</span><span class="token string-interpolation" style="color: rgb(163, 21, 21);">f"\n🔔 [</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">{</span><span class="token string-interpolation interpolation">payload</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">[</span><span class="token string-interpolation interpolation" style="color: rgb(163, 21, 21);">'category'</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">]</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">:</span><span class="token string-interpolation interpolation format-spec">&gt;8</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">}</span><span class="token string-interpolation" style="color: rgb(163, 21, 21);">] [</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">{</span><span class="token string-interpolation interpolation">payload</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">[</span><span class="token string-interpolation interpolation" style="color: rgb(163, 21, 21);">'priority'</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">]</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">:</span><span class="token string-interpolation interpolation format-spec">&gt;6</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">}</span><span class="token string-interpolation" style="color: rgb(163, 21, 21);">] "</span><span>
+</span><span>              </span><span class="token string-interpolation" style="color: rgb(163, 21, 21);">f"seq=</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">{</span><span class="token string-interpolation interpolation">current_sequence</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">:</span><span class="token string-interpolation interpolation format-spec">&gt;4</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">}</span><span class="token string-interpolation" style="color: rgb(163, 21, 21);"> | offset=</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">{</span><span class="token string-interpolation interpolation">current_offset</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">:</span><span class="token string-interpolation interpolation format-spec">&gt;4</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">}</span><span class="token string-interpolation" style="color: rgb(163, 21, 21);"> | "</span><span>
+</span><span>              </span><span class="token string-interpolation" style="color: rgb(163, 21, 21);">f"</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">{</span><span class="token string-interpolation interpolation">order_status</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">}</span><span class="token string-interpolation" style="color: rgb(163, 21, 21);">"</span><span class="token" style="color: rgb(57, 58, 52);">)</span><span>
+</span><span>        </span><span class="token" style="color: rgb(0, 0, 255);">print</span><span class="token" style="color: rgb(57, 58, 52);">(</span><span class="token string-interpolation" style="color: rgb(163, 21, 21);">f"   📰 </span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">{</span><span class="token string-interpolation interpolation">payload</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">[</span><span class="token string-interpolation interpolation" style="color: rgb(163, 21, 21);">'headline'</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">]</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">}</span><span class="token string-interpolation" style="color: rgb(163, 21, 21);">"</span><span class="token" style="color: rgb(57, 58, 52);">)</span><span>
+</span><span>        </span><span class="token" style="color: rgb(0, 0, 255);">print</span><span class="token" style="color: rgb(57, 58, 52);">(</span><span class="token string-interpolation" style="color: rgb(163, 21, 21);">f"   👤 </span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">{</span><span class="token string-interpolation interpolation">payload</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">[</span><span class="token string-interpolation interpolation" style="color: rgb(163, 21, 21);">'reporter'</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">]</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">}</span><span class="token string-interpolation" style="color: rgb(163, 21, 21);"> | "</span><span>
+</span><span>              </span><span class="token string-interpolation" style="color: rgb(163, 21, 21);">f"🕐 </span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">{</span><span class="token string-interpolation interpolation">payload</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">[</span><span class="token string-interpolation interpolation" style="color: rgb(163, 21, 21);">'produced_at_human'</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">]</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">}</span><span class="token string-interpolation" style="color: rgb(163, 21, 21);">"</span><span class="token" style="color: rgb(57, 58, 52);">)</span><span>
+</span>
+<span>        </span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># Calculate consumption lag (time between produce and consume)</span><span>
+</span><span>        produce_time </span><span class="token" style="color: rgb(57, 58, 52);">=</span><span> payload</span><span class="token" style="color: rgb(57, 58, 52);">[</span><span class="token" style="color: rgb(163, 21, 21);">'produced_at'</span><span class="token" style="color: rgb(57, 58, 52);">]</span><span>
+</span><span>        consume_time </span><span class="token" style="color: rgb(57, 58, 52);">=</span><span> time</span><span class="token" style="color: rgb(57, 58, 52);">.</span><span>time</span><span class="token" style="color: rgb(57, 58, 52);">(</span><span class="token" style="color: rgb(57, 58, 52);">)</span><span>
+</span><span>        lag_seconds </span><span class="token" style="color: rgb(57, 58, 52);">=</span><span> consume_time </span><span class="token" style="color: rgb(57, 58, 52);">-</span><span> produce_time
+</span><span>        </span><span class="token" style="color: rgb(0, 0, 255);">print</span><span class="token" style="color: rgb(57, 58, 52);">(</span><span class="token string-interpolation" style="color: rgb(163, 21, 21);">f"   ⏱️  Consumption lag: </span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">{</span><span class="token string-interpolation interpolation">lag_seconds</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">:</span><span class="token string-interpolation interpolation format-spec">.2f</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">}</span><span class="token string-interpolation" style="color: rgb(163, 21, 21);">s"</span><span class="token" style="color: rgb(57, 58, 52);">)</span><span>
+</span>
+<span>        </span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># Update tracking state</span><span>
+</span><span>        last_sequence </span><span class="token" style="color: rgb(57, 58, 52);">=</span><span> current_sequence
+</span><span>        last_offset </span><span class="token" style="color: rgb(57, 58, 52);">=</span><span> current_offset
+</span>
+<span></span><span class="token" style="color: rgb(0, 0, 255);">except</span><span> KeyboardInterrupt</span><span class="token" style="color: rgb(57, 58, 52);">:</span><span>
+</span><span>    </span><span class="token" style="color: rgb(0, 0, 255);">print</span><span class="token" style="color: rgb(57, 58, 52);">(</span><span class="token" style="color: rgb(163, 21, 21);">"\n\n🛑 Ticker display shutting down..."</span><span class="token" style="color: rgb(57, 58, 52);">)</span><span>
+</span>
+<span></span><span class="token" style="color: rgb(0, 0, 255);">finally</span><span class="token" style="color: rgb(57, 58, 52);">:</span><span>
+</span><span>    consumer</span><span class="token" style="color: rgb(57, 58, 52);">.</span><span>close</span><span class="token" style="color: rgb(57, 58, 52);">(</span><span class="token" style="color: rgb(57, 58, 52);">)</span><span>
+</span><span>    </span><span class="token" style="color: rgb(0, 0, 255);">print</span><span class="token" style="color: rgb(57, 58, 52);">(</span><span class="token string-interpolation" style="color: rgb(163, 21, 21);">f"\n📊 Ticker Session Stats:"</span><span class="token" style="color: rgb(57, 58, 52);">)</span><span>
+</span><span>    </span><span class="token" style="color: rgb(0, 0, 255);">print</span><span class="token" style="color: rgb(57, 58, 52);">(</span><span class="token string-interpolation" style="color: rgb(163, 21, 21);">f"   Messages received   : </span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">{</span><span class="token string-interpolation interpolation">messages_received</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">}</span><span class="token string-interpolation" style="color: rgb(163, 21, 21);">"</span><span class="token" style="color: rgb(57, 58, 52);">)</span><span>
+</span><span>    </span><span class="token" style="color: rgb(0, 0, 255);">print</span><span class="token" style="color: rgb(57, 58, 52);">(</span><span class="token string-interpolation" style="color: rgb(163, 21, 21);">f"   Ordering violations : </span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">{</span><span class="token string-interpolation interpolation">ordering_violations</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">}</span><span class="token string-interpolation" style="color: rgb(163, 21, 21);">"</span><span class="token" style="color: rgb(57, 58, 52);">)</span><span>
+</span><span>    </span><span class="token" style="color: rgb(0, 0, 255);">print</span><span class="token" style="color: rgb(57, 58, 52);">(</span><span class="token string-interpolation" style="color: rgb(163, 21, 21);">f"   Last sequence       : </span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">{</span><span class="token string-interpolation interpolation">last_sequence</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">}</span><span class="token string-interpolation" style="color: rgb(163, 21, 21);">"</span><span class="token" style="color: rgb(57, 58, 52);">)</span><span>
+</span><span>    </span><span class="token" style="color: rgb(0, 0, 255);">print</span><span class="token" style="color: rgb(57, 58, 52);">(</span><span class="token string-interpolation" style="color: rgb(163, 21, 21);">f"   Last offset         : </span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">{</span><span class="token string-interpolation interpolation">last_offset</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">}</span><span class="token string-interpolation" style="color: rgb(163, 21, 21);">"</span><span class="token" style="color: rgb(57, 58, 52);">)</span><span>
+</span>
+<span>    </span><span class="token" style="color: rgb(0, 0, 255);">if</span><span> ordering_violations </span><span class="token" style="color: rgb(57, 58, 52);">==</span><span> </span><span class="token" style="color: rgb(54, 172, 170);">0</span><span> </span><span class="token" style="color: rgb(0, 0, 255);">and</span><span> messages_received </span><span class="token" style="color: rgb(57, 58, 52);">&gt;</span><span> </span><span class="token" style="color: rgb(54, 172, 170);">0</span><span class="token" style="color: rgb(57, 58, 52);">:</span><span>
+</span><span>        </span><span class="token" style="color: rgb(0, 0, 255);">print</span><span class="token" style="color: rgb(57, 58, 52);">(</span><span class="token string-interpolation" style="color: rgb(163, 21, 21);">f"\n   ✅ PERFECT ORDERING CONFIRMED across </span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">{</span><span class="token string-interpolation interpolation">messages_received</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">}</span><span class="token string-interpolation" style="color: rgb(163, 21, 21);"> messages!"</span><span class="token" style="color: rgb(57, 58, 52);">)</span><span>
+</span><span>    </span><span class="token" style="color: rgb(0, 0, 255);">elif</span><span> ordering_violations </span><span class="token" style="color: rgb(57, 58, 52);">&gt;</span><span> </span><span class="token" style="color: rgb(54, 172, 170);">0</span><span class="token" style="color: rgb(57, 58, 52);">:</span><span>
+</span><span>        </span><span class="token" style="color: rgb(0, 0, 255);">print</span><span class="token" style="color: rgb(57, 58, 52);">(</span><span class="token string-interpolation" style="color: rgb(163, 21, 21);">f"\n   ⚠️  </span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">{</span><span class="token string-interpolation interpolation">ordering_violations</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">}</span><span class="token string-interpolation" style="color: rgb(163, 21, 21);"> ordering violations detected!"</span><span class="token" style="color: rgb(57, 58, 52);">)</span><span>
+</span>
+<span>    </span><span class="token" style="color: rgb(0, 0, 255);">print</span><span class="token" style="color: rgb(57, 58, 52);">(</span><span class="token" style="color: rgb(163, 21, 21);">"📺 Ticker display closed."</span><span class="token" style="color: rgb(57, 58, 52);">)</span></code></pre></div>
+<h3>THE REPLAY PROOF — Second Independent Consumer</h3>
+<div class="relative"><pre style="color: rgb(57, 58, 52); font-family: Consolas, &quot;Bitstream Vera Sans Mono&quot;, &quot;Courier New&quot;, Courier, monospace; direction: ltr; text-align: left; white-space: pre; word-spacing: normal; word-break: normal; font-size: 0.9em; line-height: 1.2em; tab-size: 4; hyphens: none; padding: 1em; margin: 0.5em 0px; overflow: auto; border: 1px solid rgb(221, 221, 221); background-color: white;"><code style="white-space: pre-wrap; word-break: break-all;"><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># ═══════════════════════════════════════════════════════════</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># file: ticker_replay.py</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># A SECOND ticker screen that proves REPLAY from offset 0</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># Uses a DIFFERENT group.id → gets its own independent offset</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># ═══════════════════════════════════════════════════════════</span><span>
+</span>
+<span></span><span class="token" style="color: rgb(0, 0, 255);">from</span><span> confluent_kafka </span><span class="token" style="color: rgb(0, 0, 255);">import</span><span> Consumer</span><span class="token" style="color: rgb(57, 58, 52);">,</span><span> KafkaError
+</span><span></span><span class="token" style="color: rgb(0, 0, 255);">import</span><span> json
+</span>
+<span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># ─────────────────────────────────────────────────────────</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># DIFFERENT group.id = independent offset tracking</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># ─────────────────────────────────────────────────────────</span><span>
+</span>
+<span>config </span><span class="token" style="color: rgb(57, 58, 52);">=</span><span> </span><span class="token" style="color: rgb(57, 58, 52);">{</span><span>
+</span><span>    </span><span class="token" style="color: rgb(163, 21, 21);">'bootstrap.servers'</span><span class="token" style="color: rgb(57, 58, 52);">:</span><span> </span><span class="token" style="color: rgb(163, 21, 21);">'localhost:9092'</span><span class="token" style="color: rgb(57, 58, 52);">,</span><span>
+</span><span>    </span><span class="token" style="color: rgb(163, 21, 21);">'group.id'</span><span class="token" style="color: rgb(57, 58, 52);">:</span><span> </span><span class="token" style="color: rgb(163, 21, 21);">'ticker-replay-screen'</span><span class="token" style="color: rgb(57, 58, 52);">,</span><span>     </span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># &lt;-- DIFFERENT from ticker_consumer.py</span><span>
+</span><span>    </span><span class="token" style="color: rgb(163, 21, 21);">'auto.offset.reset'</span><span class="token" style="color: rgb(57, 58, 52);">:</span><span> </span><span class="token" style="color: rgb(163, 21, 21);">'earliest'</span><span class="token" style="color: rgb(57, 58, 52);">,</span><span>         </span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># Start from the very beginning</span><span>
+</span><span></span><span class="token" style="color: rgb(57, 58, 52);">}</span><span>
+</span>
+<span>consumer </span><span class="token" style="color: rgb(57, 58, 52);">=</span><span> Consumer</span><span class="token" style="color: rgb(57, 58, 52);">(</span><span>config</span><span class="token" style="color: rgb(57, 58, 52);">)</span><span>
+</span><span>consumer</span><span class="token" style="color: rgb(57, 58, 52);">.</span><span>subscribe</span><span class="token" style="color: rgb(57, 58, 52);">(</span><span class="token" style="color: rgb(57, 58, 52);">[</span><span class="token" style="color: rgb(163, 21, 21);">'breaking-news'</span><span class="token" style="color: rgb(57, 58, 52);">]</span><span class="token" style="color: rgb(57, 58, 52);">)</span><span>
+</span>
+<span></span><span class="token" style="color: rgb(0, 0, 255);">print</span><span class="token" style="color: rgb(57, 58, 52);">(</span><span class="token" style="color: rgb(163, 21, 21);">"📺 ByteWire News Ticker — REPLAY SCREEN"</span><span class="token" style="color: rgb(57, 58, 52);">)</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 0, 255);">print</span><span class="token" style="color: rgb(57, 58, 52);">(</span><span class="token" style="color: rgb(163, 21, 21);">"   This screen reads ALL messages from the beginning"</span><span class="token" style="color: rgb(57, 58, 52);">)</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 0, 255);">print</span><span class="token" style="color: rgb(57, 58, 52);">(</span><span class="token" style="color: rgb(163, 21, 21);">"   Proving that Kafka's append-only log retains everything\n"</span><span class="token" style="color: rgb(57, 58, 52);">)</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 0, 255);">print</span><span class="token" style="color: rgb(57, 58, 52);">(</span><span class="token" style="color: rgb(163, 21, 21);">"="</span><span> </span><span class="token" style="color: rgb(57, 58, 52);">*</span><span> </span><span class="token" style="color: rgb(54, 172, 170);">70</span><span class="token" style="color: rgb(57, 58, 52);">)</span><span>
+</span>
+<span>messages </span><span class="token" style="color: rgb(57, 58, 52);">=</span><span> </span><span class="token" style="color: rgb(57, 58, 52);">[</span><span class="token" style="color: rgb(57, 58, 52);">]</span><span>
+</span>
+<span></span><span class="token" style="color: rgb(0, 0, 255);">try</span><span class="token" style="color: rgb(57, 58, 52);">:</span><span>
+</span><span>    empty_count </span><span class="token" style="color: rgb(57, 58, 52);">=</span><span> </span><span class="token" style="color: rgb(54, 172, 170);">0</span><span>
+</span><span>    </span><span class="token" style="color: rgb(0, 0, 255);">while</span><span> empty_count </span><span class="token" style="color: rgb(57, 58, 52);">&lt;</span><span> </span><span class="token" style="color: rgb(54, 172, 170);">5</span><span class="token" style="color: rgb(57, 58, 52);">:</span><span>
+</span><span>        msg </span><span class="token" style="color: rgb(57, 58, 52);">=</span><span> consumer</span><span class="token" style="color: rgb(57, 58, 52);">.</span><span>poll</span><span class="token" style="color: rgb(57, 58, 52);">(</span><span>timeout</span><span class="token" style="color: rgb(57, 58, 52);">=</span><span class="token" style="color: rgb(54, 172, 170);">1.0</span><span class="token" style="color: rgb(57, 58, 52);">)</span><span>
+</span>
+<span>        </span><span class="token" style="color: rgb(0, 0, 255);">if</span><span> msg </span><span class="token" style="color: rgb(0, 0, 255);">is</span><span> </span><span class="token" style="color: rgb(54, 172, 170);">None</span><span class="token" style="color: rgb(57, 58, 52);">:</span><span>
+</span><span>            empty_count </span><span class="token" style="color: rgb(57, 58, 52);">+=</span><span> </span><span class="token" style="color: rgb(54, 172, 170);">1</span><span>
+</span><span>            </span><span class="token" style="color: rgb(0, 0, 255);">continue</span><span>
+</span>
+<span>        </span><span class="token" style="color: rgb(0, 0, 255);">if</span><span> msg</span><span class="token" style="color: rgb(57, 58, 52);">.</span><span>error</span><span class="token" style="color: rgb(57, 58, 52);">(</span><span class="token" style="color: rgb(57, 58, 52);">)</span><span class="token" style="color: rgb(57, 58, 52);">:</span><span>
+</span><span>            </span><span class="token" style="color: rgb(0, 0, 255);">if</span><span> msg</span><span class="token" style="color: rgb(57, 58, 52);">.</span><span>error</span><span class="token" style="color: rgb(57, 58, 52);">(</span><span class="token" style="color: rgb(57, 58, 52);">)</span><span class="token" style="color: rgb(57, 58, 52);">.</span><span>code</span><span class="token" style="color: rgb(57, 58, 52);">(</span><span class="token" style="color: rgb(57, 58, 52);">)</span><span> </span><span class="token" style="color: rgb(57, 58, 52);">==</span><span> KafkaError</span><span class="token" style="color: rgb(57, 58, 52);">.</span><span>_PARTITION_EOF</span><span class="token" style="color: rgb(57, 58, 52);">:</span><span>
+</span><span>                </span><span class="token" style="color: rgb(0, 0, 255);">print</span><span class="token" style="color: rgb(57, 58, 52);">(</span><span class="token" style="color: rgb(163, 21, 21);">"   📭 Reached end of log"</span><span class="token" style="color: rgb(57, 58, 52);">)</span><span>
+</span><span>                </span><span class="token" style="color: rgb(0, 0, 255);">break</span><span>
+</span><span>            </span><span class="token" style="color: rgb(0, 0, 255);">continue</span><span>
+</span>
+<span>        empty_count </span><span class="token" style="color: rgb(57, 58, 52);">=</span><span> </span><span class="token" style="color: rgb(54, 172, 170);">0</span><span>
+</span><span>        payload </span><span class="token" style="color: rgb(57, 58, 52);">=</span><span> json</span><span class="token" style="color: rgb(57, 58, 52);">.</span><span>loads</span><span class="token" style="color: rgb(57, 58, 52);">(</span><span>msg</span><span class="token" style="color: rgb(57, 58, 52);">.</span><span>value</span><span class="token" style="color: rgb(57, 58, 52);">(</span><span class="token" style="color: rgb(57, 58, 52);">)</span><span class="token" style="color: rgb(57, 58, 52);">.</span><span>decode</span><span class="token" style="color: rgb(57, 58, 52);">(</span><span class="token" style="color: rgb(163, 21, 21);">'utf-8'</span><span class="token" style="color: rgb(57, 58, 52);">)</span><span class="token" style="color: rgb(57, 58, 52);">)</span><span>
+</span><span>        messages</span><span class="token" style="color: rgb(57, 58, 52);">.</span><span>append</span><span class="token" style="color: rgb(57, 58, 52);">(</span><span class="token" style="color: rgb(57, 58, 52);">{</span><span>
+</span><span>            </span><span class="token" style="color: rgb(163, 21, 21);">'offset'</span><span class="token" style="color: rgb(57, 58, 52);">:</span><span> msg</span><span class="token" style="color: rgb(57, 58, 52);">.</span><span>offset</span><span class="token" style="color: rgb(57, 58, 52);">(</span><span class="token" style="color: rgb(57, 58, 52);">)</span><span class="token" style="color: rgb(57, 58, 52);">,</span><span>
+</span><span>            </span><span class="token" style="color: rgb(163, 21, 21);">'sequence'</span><span class="token" style="color: rgb(57, 58, 52);">:</span><span> payload</span><span class="token" style="color: rgb(57, 58, 52);">[</span><span class="token" style="color: rgb(163, 21, 21);">'sequence'</span><span class="token" style="color: rgb(57, 58, 52);">]</span><span class="token" style="color: rgb(57, 58, 52);">,</span><span>
+</span><span>            </span><span class="token" style="color: rgb(163, 21, 21);">'headline'</span><span class="token" style="color: rgb(57, 58, 52);">:</span><span> payload</span><span class="token" style="color: rgb(57, 58, 52);">[</span><span class="token" style="color: rgb(163, 21, 21);">'headline'</span><span class="token" style="color: rgb(57, 58, 52);">]</span><span class="token" style="color: rgb(57, 58, 52);">[</span><span class="token" style="color: rgb(57, 58, 52);">:</span><span class="token" style="color: rgb(54, 172, 170);">40</span><span class="token" style="color: rgb(57, 58, 52);">]</span><span class="token" style="color: rgb(57, 58, 52);">,</span><span>
+</span><span>        </span><span class="token" style="color: rgb(57, 58, 52);">}</span><span class="token" style="color: rgb(57, 58, 52);">)</span><span>
+</span>
+<span></span><span class="token" style="color: rgb(0, 0, 255);">except</span><span> KeyboardInterrupt</span><span class="token" style="color: rgb(57, 58, 52);">:</span><span>
+</span><span>    </span><span class="token" style="color: rgb(0, 0, 255);">pass</span><span>
+</span>
+<span></span><span class="token" style="color: rgb(0, 0, 255);">finally</span><span class="token" style="color: rgb(57, 58, 52);">:</span><span>
+</span><span>    consumer</span><span class="token" style="color: rgb(57, 58, 52);">.</span><span>close</span><span class="token" style="color: rgb(57, 58, 52);">(</span><span class="token" style="color: rgb(57, 58, 52);">)</span><span>
+</span>
+<span>    </span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># ─────────────────────────────────────────────────────</span><span>
+</span><span>    </span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># DISPLAY REPLAY SUMMARY</span><span>
+</span><span>    </span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># ─────────────────────────────────────────────────────</span><span>
+</span><span>    </span><span class="token" style="color: rgb(0, 0, 255);">print</span><span class="token" style="color: rgb(57, 58, 52);">(</span><span class="token string-interpolation" style="color: rgb(163, 21, 21);">f"\n📋 REPLAY SUMMARY — </span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">{</span><span class="token string-interpolation interpolation builtin">len</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">(</span><span class="token string-interpolation interpolation">messages</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">)</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">}</span><span class="token string-interpolation" style="color: rgb(163, 21, 21);"> messages recovered\n"</span><span class="token" style="color: rgb(57, 58, 52);">)</span><span>
+</span><span>    </span><span class="token" style="color: rgb(0, 0, 255);">print</span><span class="token" style="color: rgb(57, 58, 52);">(</span><span class="token string-interpolation" style="color: rgb(163, 21, 21);">f"</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">{</span><span class="token string-interpolation interpolation" style="color: rgb(163, 21, 21);">'Offset'</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">:</span><span class="token string-interpolation interpolation format-spec">&gt;6</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">}</span><span class="token string-interpolation" style="color: rgb(163, 21, 21);"> | </span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">{</span><span class="token string-interpolation interpolation" style="color: rgb(163, 21, 21);">'Seq'</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">:</span><span class="token string-interpolation interpolation format-spec">&gt;4</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">}</span><span class="token string-interpolation" style="color: rgb(163, 21, 21);"> | Headline"</span><span class="token" style="color: rgb(57, 58, 52);">)</span><span>
+</span><span>    </span><span class="token" style="color: rgb(0, 0, 255);">print</span><span class="token" style="color: rgb(57, 58, 52);">(</span><span class="token" style="color: rgb(163, 21, 21);">"-"</span><span> </span><span class="token" style="color: rgb(57, 58, 52);">*</span><span> </span><span class="token" style="color: rgb(54, 172, 170);">60</span><span class="token" style="color: rgb(57, 58, 52);">)</span><span>
+</span>
+<span>    </span><span class="token" style="color: rgb(0, 0, 255);">for</span><span> m </span><span class="token" style="color: rgb(0, 0, 255);">in</span><span> messages</span><span class="token" style="color: rgb(57, 58, 52);">:</span><span>
+</span><span>        </span><span class="token" style="color: rgb(0, 0, 255);">print</span><span class="token" style="color: rgb(57, 58, 52);">(</span><span class="token string-interpolation" style="color: rgb(163, 21, 21);">f"</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">{</span><span class="token string-interpolation interpolation">m</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">[</span><span class="token string-interpolation interpolation" style="color: rgb(163, 21, 21);">'offset'</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">]</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">:</span><span class="token string-interpolation interpolation format-spec">&gt;6</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">}</span><span class="token string-interpolation" style="color: rgb(163, 21, 21);"> | </span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">{</span><span class="token string-interpolation interpolation">m</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">[</span><span class="token string-interpolation interpolation" style="color: rgb(163, 21, 21);">'sequence'</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">]</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">:</span><span class="token string-interpolation interpolation format-spec">&gt;4</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">}</span><span class="token string-interpolation" style="color: rgb(163, 21, 21);"> | </span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">{</span><span class="token string-interpolation interpolation">m</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">[</span><span class="token string-interpolation interpolation" style="color: rgb(163, 21, 21);">'headline'</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">]</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">}</span><span class="token string-interpolation" style="color: rgb(163, 21, 21);">"</span><span class="token" style="color: rgb(57, 58, 52);">)</span><span>
+</span>
+<span>    </span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># ─────────────────────────────────────────────────────</span><span>
+</span><span>    </span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># VERIFY ORDERING IN REPLAYED MESSAGES</span><span>
+</span><span>    </span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># ─────────────────────────────────────────────────────</span><span>
+</span><span>    </span><span class="token" style="color: rgb(0, 0, 255);">if</span><span> </span><span class="token builtin">len</span><span class="token" style="color: rgb(57, 58, 52);">(</span><span>messages</span><span class="token" style="color: rgb(57, 58, 52);">)</span><span> </span><span class="token" style="color: rgb(57, 58, 52);">&gt;</span><span> </span><span class="token" style="color: rgb(54, 172, 170);">1</span><span class="token" style="color: rgb(57, 58, 52);">:</span><span>
+</span><span>        offsets_ordered </span><span class="token" style="color: rgb(57, 58, 52);">=</span><span> </span><span class="token builtin">all</span><span class="token" style="color: rgb(57, 58, 52);">(</span><span>
+</span><span>            messages</span><span class="token" style="color: rgb(57, 58, 52);">[</span><span>i</span><span class="token" style="color: rgb(57, 58, 52);">]</span><span class="token" style="color: rgb(57, 58, 52);">[</span><span class="token" style="color: rgb(163, 21, 21);">'offset'</span><span class="token" style="color: rgb(57, 58, 52);">]</span><span> </span><span class="token" style="color: rgb(57, 58, 52);">&lt;</span><span> messages</span><span class="token" style="color: rgb(57, 58, 52);">[</span><span>i</span><span class="token" style="color: rgb(57, 58, 52);">+</span><span class="token" style="color: rgb(54, 172, 170);">1</span><span class="token" style="color: rgb(57, 58, 52);">]</span><span class="token" style="color: rgb(57, 58, 52);">[</span><span class="token" style="color: rgb(163, 21, 21);">'offset'</span><span class="token" style="color: rgb(57, 58, 52);">]</span><span>
+</span><span>            </span><span class="token" style="color: rgb(0, 0, 255);">for</span><span> i </span><span class="token" style="color: rgb(0, 0, 255);">in</span><span> </span><span class="token builtin">range</span><span class="token" style="color: rgb(57, 58, 52);">(</span><span class="token builtin">len</span><span class="token" style="color: rgb(57, 58, 52);">(</span><span>messages</span><span class="token" style="color: rgb(57, 58, 52);">)</span><span> </span><span class="token" style="color: rgb(57, 58, 52);">-</span><span> </span><span class="token" style="color: rgb(54, 172, 170);">1</span><span class="token" style="color: rgb(57, 58, 52);">)</span><span>
+</span><span>        </span><span class="token" style="color: rgb(57, 58, 52);">)</span><span>
+</span><span>        sequences_ordered </span><span class="token" style="color: rgb(57, 58, 52);">=</span><span> </span><span class="token builtin">all</span><span class="token" style="color: rgb(57, 58, 52);">(</span><span>
+</span><span>            messages</span><span class="token" style="color: rgb(57, 58, 52);">[</span><span>i</span><span class="token" style="color: rgb(57, 58, 52);">]</span><span class="token" style="color: rgb(57, 58, 52);">[</span><span class="token" style="color: rgb(163, 21, 21);">'sequence'</span><span class="token" style="color: rgb(57, 58, 52);">]</span><span> </span><span class="token" style="color: rgb(57, 58, 52);">&lt;</span><span> messages</span><span class="token" style="color: rgb(57, 58, 52);">[</span><span>i</span><span class="token" style="color: rgb(57, 58, 52);">+</span><span class="token" style="color: rgb(54, 172, 170);">1</span><span class="token" style="color: rgb(57, 58, 52);">]</span><span class="token" style="color: rgb(57, 58, 52);">[</span><span class="token" style="color: rgb(163, 21, 21);">'sequence'</span><span class="token" style="color: rgb(57, 58, 52);">]</span><span>
+</span><span>            </span><span class="token" style="color: rgb(0, 0, 255);">for</span><span> i </span><span class="token" style="color: rgb(0, 0, 255);">in</span><span> </span><span class="token builtin">range</span><span class="token" style="color: rgb(57, 58, 52);">(</span><span class="token builtin">len</span><span class="token" style="color: rgb(57, 58, 52);">(</span><span>messages</span><span class="token" style="color: rgb(57, 58, 52);">)</span><span> </span><span class="token" style="color: rgb(57, 58, 52);">-</span><span> </span><span class="token" style="color: rgb(54, 172, 170);">1</span><span class="token" style="color: rgb(57, 58, 52);">)</span><span>
+</span><span>        </span><span class="token" style="color: rgb(57, 58, 52);">)</span><span>
+</span>
+<span>        </span><span class="token" style="color: rgb(0, 0, 255);">print</span><span class="token" style="color: rgb(57, 58, 52);">(</span><span class="token string-interpolation" style="color: rgb(163, 21, 21);">f"\n✅ Offsets strictly ordered   : </span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">{</span><span class="token string-interpolation interpolation">offsets_ordered</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">}</span><span class="token string-interpolation" style="color: rgb(163, 21, 21);">"</span><span class="token" style="color: rgb(57, 58, 52);">)</span><span>
+</span><span>        </span><span class="token" style="color: rgb(0, 0, 255);">print</span><span class="token" style="color: rgb(57, 58, 52);">(</span><span class="token string-interpolation" style="color: rgb(163, 21, 21);">f"✅ Sequences strictly ordered : </span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">{</span><span class="token string-interpolation interpolation">sequences_ordered</span><span class="token string-interpolation interpolation" style="color: rgb(57, 58, 52);">}</span><span class="token string-interpolation" style="color: rgb(163, 21, 21);">"</span><span class="token" style="color: rgb(57, 58, 52);">)</span><span>
+</span>
+<span>        </span><span class="token" style="color: rgb(0, 0, 255);">if</span><span> offsets_ordered </span><span class="token" style="color: rgb(0, 0, 255);">and</span><span> sequences_ordered</span><span class="token" style="color: rgb(57, 58, 52);">:</span><span>
+</span><span>            </span><span class="token" style="color: rgb(0, 0, 255);">print</span><span class="token" style="color: rgb(57, 58, 52);">(</span><span class="token" style="color: rgb(163, 21, 21);">"\n🎉 REPLAY PROOF: All messages recovered in perfect order!"</span><span class="token" style="color: rgb(57, 58, 52);">)</span><span>
+</span><span>            </span><span class="token" style="color: rgb(0, 0, 255);">print</span><span class="token" style="color: rgb(57, 58, 52);">(</span><span class="token" style="color: rgb(163, 21, 21);">"   The append-only log preserved every single message."</span><span class="token" style="color: rgb(57, 58, 52);">)</span><span>
+</span><span>        </span><span class="token" style="color: rgb(0, 0, 255);">else</span><span class="token" style="color: rgb(57, 58, 52);">:</span><span>
+</span><span>            </span><span class="token" style="color: rgb(0, 0, 255);">print</span><span class="token" style="color: rgb(57, 58, 52);">(</span><span class="token" style="color: rgb(163, 21, 21);">"\n⚠️  Ordering issue detected — investigate!"</span><span class="token" style="color: rgb(57, 58, 52);">)</span></code></pre></div>
+<h3>RUNNING THE COMPLETE DEMO</h3>
+<div class="relative"><pre style="color: rgb(57, 58, 52); font-family: Consolas, &quot;Bitstream Vera Sans Mono&quot;, &quot;Courier New&quot;, Courier, monospace; direction: ltr; text-align: left; white-space: pre; word-spacing: normal; word-break: normal; font-size: 0.9em; line-height: 1.2em; tab-size: 4; hyphens: none; padding: 1em; margin: 0.5em 0px; overflow: auto; border: 1px solid rgb(221, 221, 221); background-color: white;"><code style="white-space: pre-wrap; word-break: break-all;"><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># ═══════════════════════════════════════════════════════════</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># STEP 1: Start the reporter (producer) — runs continuously</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># ═══════════════════════════════════════════════════════════</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># TERMINAL 1:</span><span>
+</span>python reporter_producer.py
+
+<span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># Let it run for ~20 seconds (produces ~10 headlines)</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># You will see:</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># ✅ Delivered | seq=   1 | offset=   0 | Breaking: Major policy reform...</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># ✅ Delivered | seq=   2 | offset=   1 | Championship finals set for...</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># ✅ Delivered | seq=   3 | offset=   2 | New AI model breaks performan...</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># ...</span><span>
+</span>
+
+<span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># ═══════════════════════════════════════════════════════════</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># STEP 2: Start the ticker (consumer) — reads in real-time</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># ═══════════════════════════════════════════════════════════</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># TERMINAL 2:</span><span>
+</span>python ticker_consumer.py
+
+<span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># You will see:</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># 🔔 [POLITICS] [  HIGH] seq=   1 | offset=   0 | ✅</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;">#    📰 Breaking: Major policy reform announced by government</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;">#    👤 reporter-3 | 🕐 2024-03-10 14:30:00</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;">#    ⏱️  Consumption lag: 12.45s    ← (catching up on old messages)</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;">#</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># 🔔 [  SPORTS] [MEDIUM] seq=   2 | offset=   1 | ✅</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;">#    📰 Championship finals set for this weekend</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;">#    ...</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;">#</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># After catching up, lag drops to ~0.01s (real-time!)</span><span>
+</span>
+
+<span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># ═══════════════════════════════════════════════════════════</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># STEP 3: Stop the consumer (Ctrl+C), let producer run more</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># ═══════════════════════════════════════════════════════════</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># In TERMINAL 2: Press Ctrl+C</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># Let TERMINAL 1 (producer) keep running for 10 more seconds</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># Then restart the consumer:</span><span>
+</span>python ticker_consumer.py
+
+<span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># OBSERVE: It picks up EXACTLY where it left off</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># No duplicates, no gaps (offsets were committed)</span><span>
+</span>
+
+<span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># ═══════════════════════════════════════════════════════════</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># STEP 4: Run the replay screen (proves full history exists)</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># ═══════════════════════════════════════════════════════════</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># TERMINAL 3:</span><span>
+</span>python ticker_replay.py
+
+<span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># OBSERVE: It reads ALL messages from offset 0</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># Even though ticker_consumer.py already read them</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># Because it uses a DIFFERENT group.id</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;">#</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># OUTPUT:</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># 📋 REPLAY SUMMARY — 15 messages recovered</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;">#</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># Offset |  Seq | Headline</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># ------------------------------------------------------------</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;">#      0 |    1 | Breaking: Major policy reform annou...</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;">#      1 |    2 | Championship finals set for this we...</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;">#      2 |    3 | New AI model breaks performance rec...</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;">#      ...</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;">#</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># ✅ Offsets strictly ordered   : True</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># ✅ Sequences strictly ordered : True</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># 🎉 REPLAY PROOF: All messages recovered in perfect order!</span><span>
+</span>
+
+<span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># ═══════════════════════════════════════════════════════════</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># STEP 5: Stop everything</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># ═══════════════════════════════════════════════════════════</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># Ctrl+C in all terminals</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># Producer shows final stats</span><span>
+</span><span></span><span class="token" style="color: rgb(0, 128, 0); font-style: italic;"># Consumer shows ordering confirmation</span></code></pre></div>
+<hr>
+<h2>🔑 KEY TAKEAWAY</h2>
+<div class="relative"><pre style="color: rgb(57, 58, 52); font-family: Consolas, &quot;Bitstream Vera Sans Mono&quot;, &quot;Courier New&quot;, Courier, monospace; direction: ltr; text-align: left; white-space: pre; word-spacing: normal; word-break: normal; font-size: 0.9em; line-height: 1.2em; tab-size: 4; hyphens: none; padding: 1em; margin: 0.5em 0px; overflow: auto; border: 1px solid rgb(221, 221, 221); background-color: white;"><code style="white-space: pre-wrap; word-break: break-all;"><span>WHAT YOU LEARNED IN PROJECT 2:
+</span>═══════════════════════════════
+
+✅ Continuous producing = while loop + produce() + poll(0) + sleep()
+✅ Continuous consuming = while loop + poll(timeout) — NO extra sleep
+✅ poll(0) in producer loop = non-blocking callback processing
+✅ poll(timeout) in consumer loop = built-in waiting mechanism
+✅ flush() is for END of script — poll(0) is for INSIDE a loop
+✅ Ordering is GUARANTEED within a single partition
+✅ The append-only log RETAINS all messages regardless of consumption
+✅ Different group.id = independent offset = full replay capability
+✅ Consumption lag = how far behind the consumer is from latest message
+
+BUILDING ON PROJECT 1:
+→ Project 1 taught: single message lifecycle (produce → consume)
+→ Project 2 extends: continuous streaming + ordering proof + replay proof
+
+THE CORE MENTAL MODEL EVOLVES:
+  Project 1: Producer → [single message] → Consumer
+  Project 2: Producer → [continuous ordered stream] → Consumer(s)
+                                                       ↑
+                                              independent replay
+
+
+CONNECTION TO NEXT PROJECT:
+═══════════════════════════
+We proved ordering works perfectly — BUT only with 1 partition.
+
+What happens when ByteWire News gets 10x more traffic?
+→ 1 partition = 1 consumer max per group = bottleneck
+→ We need to SPLIT the log into multiple parallel lanes
+
+But wait — if messages are split across lanes,
+does ordering BREAK? What controls which lane a message goes to?
+
+PROJECT 3 answers: "What are PARTITIONS, why do they exist,
+and what happens to ordering when you have more than one?"</code></pre></div>
+<hr>
+<h2>🌉 BRIDGE TO NEXT PROJECT</h2>
+<div class="relative"><pre style="color: rgb(57, 58, 52); font-family: Consolas, &quot;Bitstream Vera Sans Mono&quot;, &quot;Courier New&quot;, Courier, monospace; direction: ltr; text-align: left; white-space: pre; word-spacing: normal; word-break: normal; font-size: 0.9em; line-height: 1.2em; tab-size: 4; hyphens: none; padding: 1em; margin: 0.5em 0px; overflow: auto; border: 1px solid rgb(221, 221, 221); background-color: white;"><code style="white-space: pre-wrap; word-break: break-all;"><span>PROJECT 3: "The Mailbox System — Understanding Partitions"
+</span>
+WHAT CHANGES:
+→ Project 2: 1 partition, perfect ordering, single lane
+→ Project 3: Multiple partitions, parallel lanes, ordering rules change
+
+NEW CONCEPTS COMING:
+→ What partitions ARE and why they exist
+→ How Kafka distributes messages across partitions
+→ Ordering guarantee: WITHIN partition only (not across)
+→ Offset is PER-PARTITION (not per-topic)
+→ How partition count affects parallelism
+
+PREREQUISITE FROM PROJECT 1 &amp; 2:
+→ Topic, producer, consumer understood ✅
+→ Offsets and ordering within single partition understood ✅
+→ Continuous producing/consuming pattern understood ✅
+→ Replay capability understood ✅</code></pre></div>
+<hr>
+</div>
+</div>
+
+<!-- ========== data-index="7" ========== -->
+
+        </div>
+
+        <div class="nav-bar">
+            <a href="project-1.html" class="nav-button prev">← Previous Project</a>
+            <div class="page-info">
+                <a href="index.html" class="nav-button home">📚 Table of Contents</a><br>
+                <span style="margin-top:8px;display:block">Project 2 of 45</span>
+            </div>
+            <a href="project-3.html" class="nav-button next">Next Project →</a>
+        </div>
+    </div>
+
+    
+    <div id="progress-track"><div id="progress-fill"></div></div>
+    <div id="progress-pct">0%</div>
+
+
+<script src="script.js"></script>
+
+</body>
+</html>
